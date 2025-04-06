@@ -22,7 +22,7 @@ export class UniqueId extends ValueObject<string> {
     return new UniqueId(id)
   }
 
-  private static isValid(id: string): boolean {
+  public static isValid(id: string): boolean {
     return uuidValidate(id) && uuidVersion(id) === 4
   }
 }
