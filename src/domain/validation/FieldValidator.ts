@@ -42,9 +42,15 @@ export class FieldValidator {
 
   public minLength(min: number): this {
     if (typeof this.value === 'string') {
-      const actualLen = this.value.trim().length
-      if (actualLen < min) {
-        this.errors.push(new MinLengthError(this.fieldName, min, actualLen))
+      if (
+        this.value !== null &&
+        this.value !== undefined &&
+        this.value !== ''
+      ) {
+        const actualLen = this.value.trim().length
+        if (actualLen < min) {
+          this.errors.push(new MinLengthError(this.fieldName, min, actualLen))
+        }
       }
     }
     return this
@@ -52,9 +58,15 @@ export class FieldValidator {
 
   public maxLength(max: number): this {
     if (typeof this.value === 'string') {
-      const actualLen = this.value.trim().length
-      if (actualLen > max) {
-        this.errors.push(new MaxLengthError(this.fieldName, max, actualLen))
+      if (
+        this.value !== null &&
+        this.value !== undefined &&
+        this.value !== ''
+      ) {
+        const actualLen = this.value.trim().length
+        if (actualLen > max) {
+          this.errors.push(new MaxLengthError(this.fieldName, max, actualLen))
+        }
       }
     }
     return this

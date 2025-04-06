@@ -1,22 +1,30 @@
 import { Result } from '@domain/core'
 
 describe('Result', () => {
-  it('should create a success result with a value', () => {
-    const sut = Result.ok<number>(42)
+  const createAndVerifyOkResult = <T>(value: T) => {
+    const sut = Result.ok<T>(value)
     expect(sut.isSuccess).toBe(true)
     expect(sut.isFailure).toBe(false)
-    expect(sut.value).toBe(42)
-    expect(sut.errors.length).toBe(0)
+    expect(sut.value).toBe(value)
     expect(sut.errors).toEqual([])
+    return sut
+  }
+
+  const createAndVerifyFailResult = <T>(errors: Error[]) => {
+    const sut = Result.fail<T>(errors)
+    expect(sut.isSuccess).toBe(false)
+    expect(sut.isFailure).toBe(true)
+    expect(sut.errors).toEqual(errors)
+    return sut
+  }
+
+  it('should create a success result with a value', () => {
+    createAndVerifyOkResult<number>(42)
   })
 
   it('should create a fail result with errors', () => {
     const errors = [new Error('Error A'), new Error('Error B')]
-    const sut = Result.fail<Error>(errors)
-
-    expect(sut.isSuccess).toBe(false)
-    expect(sut.isFailure).toBe(true)
-    expect(sut.errors).toEqual(errors)
+    createAndVerifyFailResult<number>(errors)
   })
 
   it('should throw an error if we try to get `value` from a fail result', () => {

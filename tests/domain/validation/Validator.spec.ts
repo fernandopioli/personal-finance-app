@@ -101,13 +101,10 @@ describe('Validator + FieldValidator', () => {
 
     const errors = validator.getErrors()
 
-    expect(errors).toHaveLength(4)
+    expect(errors).toHaveLength(3)
 
     const requiredError = errors.find(
       (e) => e instanceof RequiredFieldError && e.field === 'nome',
-    )
-    const minLenError = errors.find(
-      (e) => e instanceof MinLengthError && e.field === 'nome',
     )
     const minNumError = errors.find(
       (e) => e instanceof MinNumberError && e.field === 'idade',
@@ -117,7 +114,6 @@ describe('Validator + FieldValidator', () => {
     )
 
     expect(requiredError).toBeDefined()
-    expect(minLenError).toBeDefined()
     expect(minNumError).toBeDefined()
     expect(arrNotEmptyError).toBeDefined()
   })
