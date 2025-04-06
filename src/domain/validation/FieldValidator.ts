@@ -16,7 +16,7 @@ export class FieldValidator {
   ) {}
 
   public required(): this {
-    if (this.value === null || this.value === undefined || this.value === '') {
+    if (this.isEmpty(this.value)) {
       this.errors.push(new RequiredFieldError(this.fieldName))
     }
     return this
@@ -41,32 +41,20 @@ export class FieldValidator {
   }
 
   public minLength(min: number): this {
-    if (typeof this.value === 'string') {
-      if (
-        this.value !== null &&
-        this.value !== undefined &&
-        this.value !== ''
-      ) {
-        const actualLen = this.value.trim().length
-        if (actualLen < min) {
-          this.errors.push(new MinLengthError(this.fieldName, min, actualLen))
-        }
+    if (typeof this.value === 'string' && !this.isEmpty(this.value)) {
+      const actualLen = this.value.trim().length
+      if (actualLen < min) {
+        this.errors.push(new MinLengthError(this.fieldName, min, actualLen))
       }
     }
     return this
   }
 
   public maxLength(max: number): this {
-    if (typeof this.value === 'string') {
-      if (
-        this.value !== null &&
-        this.value !== undefined &&
-        this.value !== ''
-      ) {
-        const actualLen = this.value.trim().length
-        if (actualLen > max) {
-          this.errors.push(new MaxLengthError(this.fieldName, max, actualLen))
-        }
+    if (typeof this.value === 'string' && !this.isEmpty(this.value)) {
+      const actualLen = this.value.trim().length
+      if (actualLen > max) {
+        this.errors.push(new MaxLengthError(this.fieldName, max, actualLen))
       }
     }
     return this
@@ -77,5 +65,9 @@ export class FieldValidator {
       this.errors.push(new ArrayNotEmptyError(this.fieldName))
     }
     return this
+  }
+
+  private isEmpty(value: any): boolean {
+    return value === null || value === undefined || value === ''
   }
 }

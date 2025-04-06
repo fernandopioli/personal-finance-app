@@ -15,9 +15,14 @@ export class UniqueId extends ValueObject<string> {
       return new UniqueId(uuidv4())
     }
 
-    if (!uuidValidate(id) || uuidVersion(id) !== 4) {
+    if (!this.isValid(id)) {
       throw new Error('Invalid UUID')
     }
+
     return new UniqueId(id)
+  }
+
+  private static isValid(id: string): boolean {
+    return uuidValidate(id) && uuidVersion(id) === 4
   }
 }

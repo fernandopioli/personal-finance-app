@@ -13,7 +13,6 @@ export abstract class Entity {
     deletedAt?: Date | null,
   ) {
     this._id = id ? UniqueId.create(id) : UniqueId.create()
-
     this._createdAt = createdAt ?? new Date()
     this._updatedAt = updatedAt ?? new Date()
     this._deletedAt = deletedAt ?? null
