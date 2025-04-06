@@ -9,6 +9,9 @@ module.exports = {
     '^.+\\.ts$': 'ts-jest',
   },
   moduleNameMapper: pathsToModuleNameMapper(compilerOptions.paths, {
-    prefix: '<rootDir>/src',
+    prefix: '<rootDir>',
   }),
+  roots: ['<rootDir>'],
+  modulePaths: ['<rootDir>'],
+  testMatch: ['**/tests/**/*.spec.ts'],
 }

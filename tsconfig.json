@@ -3,8 +3,8 @@
       "target": "ES2020",
       "module": "commonjs",
       "outDir": "dist",
-      "rootDir": "src",
-      "baseUrl": "src",
+      "rootDir": ".",
+      "baseUrl": ".",
       "strict": true,
       "esModuleInterop": true,
       "allowSyntheticDefaultImports": true,
@@ -17,10 +17,11 @@
       "removeComments": false,
       "moduleResolution": "node",
       "paths": {
-        "@domain/*": ["domain/*"]
+        "@domain/*": ["src/domain/*"],
+        "@tests/*": ["tests/*"]
       }
     },
-    "include": ["src"],
-    "exclude": ["node_modules", "**/*.spec.ts"]
+    "include": ["src", "tests"],
+    "exclude": ["node_modules"]
   }
   
