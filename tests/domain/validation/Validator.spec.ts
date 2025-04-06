@@ -9,125 +9,122 @@ import {
 } from '@domain/errors'
 
 describe('Validator + FieldValidator', () => {
-  it('should add RequiredFieldError if value is null/undefined/empty string', () => {
+  const createValidatorAndCheck = (
+    validations: (validator: Validator) => void,
+    expectedErrors: number,
+    errorChecks?: (errors: Error[]) => void,
+  ) => {
     const validator = new Validator()
-
-    validator.check('email', '').required()
-    validator.check('name', null).required()
-    validator.check('address', undefined).required()
+    validations(validator)
 
     const errors = validator.getErrors()
-    expect(errors).toHaveLength(3)
+    expect(errors).toHaveLength(expectedErrors)
 
-    expect(errors[0]).toBeInstanceOf(RequiredFieldError)
-    expect(errors[0].field).toBe('email')
-    expect(errors[1]).toBeInstanceOf(RequiredFieldError)
-    expect(errors[1].field).toBe('name')
-    expect(errors[2]).toBeInstanceOf(RequiredFieldError)
-    expect(errors[2].field).toBe('address')
+    if (errorChecks) {
+      errorChecks(errors)
+    }
+
+    return { validator, errors }
+  }
+
+  const assertError = (error: Error, errorClass: any, field: string) => {
+    expect(error).toBeInstanceOf(errorClass)
+    expect((error as any).field).toBe(field)
+  }
+
+  it('should add RequiredFieldError if value is null/undefined/empty string', () => {
+    createValidatorAndCheck(
+      (validator) => {
+        validator.check('email', '').required()
+        validator.check('name', null).required()
+        validator.check('address', undefined).required()
+      },
+      3,
+      (errors) => {
+        assertError(errors[0], RequiredFieldError, 'email')
+        assertError(errors[1], RequiredFieldError, 'name')
+        assertError(errors[2], RequiredFieldError, 'address')
+      },
+    )
   })
 
   it('should add MinNumberError if number is smaller than min', () => {
-    const validator = new Validator()
-
-    validator.check('age', -1).minNumber(0)
-
-    const errors = validator.getErrors()
-    expect(errors).toHaveLength(1)
-
-    const [error] = errors
-    expect(error).toBeInstanceOf(MinNumberError)
-    expect(error.field).toBe('age')
-    expect(error.message).toContain('must be >= 0')
+    createValidatorAndCheck(
+      (validator) => validator.check('age', -1).minNumber(0),
+      1,
+      (errors) => {
+        assertError(errors[0], MinNumberError, 'age')
+        expect(errors[0].message).toContain('must be >= 0')
+      },
+    )
   })
 
   it('should add MaxNumberError if number is bigger than max', () => {
-    const validator = new Validator()
-
-    validator.check('price', 150).maxNumber(100)
-
-    const errors = validator.getErrors()
-    expect(errors).toHaveLength(1)
-
-    const [error] = errors
-    expect(error).toBeInstanceOf(MaxNumberError)
-    expect(error.field).toBe('price')
+    createValidatorAndCheck(
+      (validator) => validator.check('price', 150).maxNumber(100),
+      1,
+      (errors) => assertError(errors[0], MaxNumberError, 'price'),
+    )
   })
 
   it('should add MinLengthError if string is too short', () => {
-    const validator = new Validator()
-
-    validator.check('username', 'ab').minLength(3)
-
-    const errors = validator.getErrors()
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toBeInstanceOf(MinLengthError)
-    expect(errors[0].field).toBe('username')
+    createValidatorAndCheck(
+      (validator) => validator.check('username', 'ab').minLength(3),
+      1,
+      (errors) => assertError(errors[0], MinLengthError, 'username'),
+    )
   })
 
   it('should add MaxLengthError if string is too long', () => {
-    const validator = new Validator()
-
-    validator.check('password', 'abcdefghijk').maxLength(5)
-
-    const errors = validator.getErrors()
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toBeInstanceOf(MaxLengthError)
-    expect(errors[0].field).toBe('password')
+    createValidatorAndCheck(
+      (validator) => validator.check('password', 'abcdefghijk').maxLength(5),
+      1,
+      (errors) => assertError(errors[0], MaxLengthError, 'password'),
+    )
   })
 
   it('should add ArrayNotEmptyError if array is empty or not an array', () => {
-    const validator = new Validator()
-
-    validator.check('tags', []).arrayNotEmpty()
-    validator.check('options', 'not-an-array').arrayNotEmpty()
-
-    const errors = validator.getErrors()
-    expect(errors).toHaveLength(2)
-
-    expect(errors[0]).toBeInstanceOf(ArrayNotEmptyError)
-    expect(errors[0].field).toBe('tags')
-
-    expect(errors[1]).toBeInstanceOf(ArrayNotEmptyError)
-    expect(errors[1].field).toBe('options')
+    createValidatorAndCheck(
+      (validator) => {
+        validator.check('tags', []).arrayNotEmpty()
+        validator.check('options', 'not-an-array').arrayNotEmpty()
+      },
+      2,
+      (errors) => {
+        assertError(errors[0], ArrayNotEmptyError, 'tags')
+        assertError(errors[1], ArrayNotEmptyError, 'options')
+      },
+    )
   })
 
   it('should collect multiple errors on different fields', () => {
-    const validator = new Validator()
+    createValidatorAndCheck(
+      (validator) => {
+        validator.check('nome', '').required().minLength(3)
+        validator.check('idade', -5).minNumber(0)
+        validator.check('tags', []).arrayNotEmpty()
+      },
+      3,
+      (errors) => {
+        const findError = (errorClass: any, field: string) =>
+          errors.find(
+            (e) => e instanceof errorClass && (e as any).field === field,
+          )
 
-    validator.check('nome', '').required().minLength(3)
-    validator.check('idade', -5).minNumber(0)
-    validator.check('tags', []).arrayNotEmpty()
-
-    const errors = validator.getErrors()
-
-    expect(errors).toHaveLength(3)
-
-    const requiredError = errors.find(
-      (e) => e instanceof RequiredFieldError && e.field === 'nome',
+        expect(findError(RequiredFieldError, 'nome')).toBeDefined()
+        expect(findError(MinNumberError, 'idade')).toBeDefined()
+        expect(findError(ArrayNotEmptyError, 'tags')).toBeDefined()
+      },
     )
-    const minNumError = errors.find(
-      (e) => e instanceof MinNumberError && e.field === 'idade',
-    )
-    const arrNotEmptyError = errors.find(
-      (e) => e instanceof ArrayNotEmptyError && e.field === 'tags',
-    )
-
-    expect(requiredError).toBeDefined()
-    expect(minNumError).toBeDefined()
-    expect(arrNotEmptyError).toBeDefined()
   })
 
   it('should NOT add error if the checks pass', () => {
-    const validator = new Validator()
-
-    validator.check('nome', 'John Doe').required().minLength(3).maxLength(20)
-
-    validator.check('idade', 30).minNumber(0).maxNumber(100)
-
-    validator.check('tags', ['one', 'two']).arrayNotEmpty()
+    const { validator } = createValidatorAndCheck((validator) => {
+      validator.check('nome', 'John Doe').required().minLength(3).maxLength(20)
+      validator.check('idade', 30).minNumber(0).maxNumber(100)
+      validator.check('tags', ['one', 'two']).arrayNotEmpty()
+    }, 0)
 
     expect(validator.hasErrors()).toBe(false)
-    expect(validator.getErrors()).toHaveLength(0)
   })
 })

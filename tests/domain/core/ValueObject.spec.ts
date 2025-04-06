@@ -5,89 +5,117 @@ class FakeValueObject extends ValueObject<object> {
     super(value)
   }
 }
+
 class FakeValueString extends ValueObject<string> {
   constructor(value: string) {
     super(value)
   }
 }
 
-describe('Scenario 1: Creation', () => {
-  it('should create a ValueObject with the given value', () => {
-    const inputValue = 'some-string'
+describe('ValueObject', () => {
+  const createStringVO = (value: string = 'some-string') =>
+    new FakeValueString(value)
+  const createObjectVO = (value: object = { foo: 'bar' }) =>
+    new FakeValueObject(value)
 
-    const sut = new FakeValueString(inputValue)
-
-    expect(sut.value).toBe(inputValue)
-  })
-
-  it('should store the value as effectively immutable and freezed as string', () => {
-    const inputValue = 'some-string'
-    const sut = new FakeValueString(inputValue)
-
-    try {
-      ;(sut.value as any) = 'edited'
-    } catch (err) {}
-
-    expect(sut.value).toBe('some-string')
-  })
-
-  it('should store the value as effectively immutable and freezed as Object', () => {
-    const inputValue = { foo: 'bar' }
-    const sut = new FakeValueObject(inputValue)
+  const testImmutability = <T>(
+    create: () => ValueObject<T>,
+    mutate: (vo: ValueObject<T>) => void,
+    originalValue: any,
+    property?: string,
+  ) => {
+    const sut = create()
 
     try {
-      ;(sut.value as any).foo = 'edited'
+      mutate(sut)
     } catch (err) {}
 
-    expect((sut.value as any).foo).toBe('bar')
+    if (property) {
+      if (property.includes('.')) {
+        const parts = property.split('.')
+        let value: any = sut.value
+        for (const part of parts) {
+          value = value[part]
+        }
+        expect(value).toBe(originalValue)
+      } else {
+        expect((sut.value as any)[property]).toBe(originalValue)
+      }
+    } else {
+      expect(sut.value).toBe(originalValue)
+    }
+  }
+
+  describe('Creation', () => {
+    it('should create a ValueObject with the given value', () => {
+      const inputValue = 'some-string'
+      const sut = createStringVO(inputValue)
+      expect(sut.value).toBe(inputValue)
+    })
+
+    it('should store string values as effectively immutable', () => {
+      testImmutability(
+        () => createStringVO('some-string'),
+        (vo) => {
+          ;(vo.value as any) = 'edited'
+        },
+        'some-string',
+      )
+    })
+
+    it('should store object values as effectively immutable', () => {
+      testImmutability(
+        () => createObjectVO({ foo: 'bar' }),
+        (vo) => {
+          ;(vo.value as any).foo = 'edited'
+        },
+        'bar',
+        'foo',
+      )
+    })
+
+    it('should store nested object values as effectively immutable', () => {
+      testImmutability(
+        () => createObjectVO({ foo: { bar: 'baz' } }),
+        (vo) => {
+          ;(vo.value as any).foo.bar = 'edited'
+        },
+        'baz',
+        'foo.bar',
+      )
+    })
   })
-  it('should store the value as effectively immutable and freezed as nested Object', () => {
-    const inputValue = { foo: { bar: 'baz' } }
-    const sut = new FakeValueObject(inputValue)
 
-    try {
-      ;(sut.value as any).foo.bar = 'edited'
-    } catch (err) {}
+  describe('equals()', () => {
+    const testEquality = <T>(
+      first: ValueObject<T>,
+      second: ValueObject<T> | null | undefined,
+      expectedResult: boolean,
+    ) => {
+      expect(first.equals(second as any)).toBe(expectedResult)
+    }
 
-    expect((sut.value as any).foo.bar).toBe('baz')
-  })
-})
+    it('should return true if called with the same instance', () => {
+      const sut = createStringVO('test')
+      testEquality(sut, sut, true)
+    })
 
-describe('equals()', () => {
-  it('should return true if called with the same instance', () => {
-    const sut = new FakeValueString('test')
+    it('should return true if both instances have the same value', () => {
+      const sut = createObjectVO({ foo: 'bar' })
+      const other = createObjectVO({ foo: 'bar' })
+      testEquality(sut, other, true)
+    })
 
-    const result = sut.equals(sut)
+    it('should return false if different values', () => {
+      const sut = createStringVO('abc')
+      const other = createStringVO('xyz')
+      testEquality(sut, other, false)
+    })
 
-    expect(result).toBe(true)
-  })
-
-  it('should return true if both instances have the same value', () => {
-    const value = { foo: 'bar' }
-    const sut = new FakeValueObject(value)
-    const other = new FakeValueObject({ foo: 'bar' })
-
-    const result = sut.equals(other)
-
-    expect(result).toBe(true)
-  })
-
-  it('should return false if different values', () => {
-    const sut = new FakeValueString('abc')
-    const other = new FakeValueString('xyz')
-
-    const result = sut.equals(other)
-
-    expect(result).toBe(false)
-  })
-
-  it('should return false if other is null or undefined', () => {
-    const sut = new FakeValueString('abc')
-
-    const resultNull = sut.equals(null as any)
-    const resultUndef = sut.equals(undefined)
-
-    expect(resultNull).toBe(false)
-    expect(resultUndef).toBe(false)
+    it('should return false if other is null or undefined', () => {
+      const sut = createStringVO('abc')
+      testEquality(sut, null, false)
+      testEquality(sut, undefined, false)
+    })
   })
 })

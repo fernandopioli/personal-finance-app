@@ -18,22 +18,30 @@ describe('Result', () => {
     return sut
   }
 
-  it('should create a success result with a value', () => {
-    createAndVerifyOkResult<number>(42)
+  const assertThrows = (fn: () => any, message: string) => {
+    expect(fn).toThrow(message)
+  }
+
+  describe('ok()', () => {
+    it('should create a success result with a value', () => {
+      createAndVerifyOkResult<number>(42)
+    })
+
+    it('should return an empty array for errors if the result is success', () => {
+      const sut = Result.ok<string>('Hello')
+      expect(sut.errors).toEqual([])
+    })
   })
 
-  it('should create a fail result with errors', () => {
-    const errors = [new Error('Error A'), new Error('Error B')]
-    createAndVerifyFailResult<number>(errors)
-  })
+  describe('fail()', () => {
+    it('should create a fail result with errors', () => {
+      const errors = [new Error('Error A'), new Error('Error B')]
+      createAndVerifyFailResult<number>(errors)
+    })
 
-  it('should throw an error if we try to get `value` from a fail result', () => {
-    const sut = Result.fail<number>([new Error('Something went wrong')])
-    expect(() => sut.value).toThrow('Cannot get the value of a failed result.')
-  })
-
-  it('should return an empty array for errors if the result is success', () => {
-    const sut = Result.ok<string>('Hello')
-    expect(sut.errors.length).toBe(0)
+    it('should throw an error if we try to get `value` from a fail result', () => {
+      const sut = Result.fail<number>([new Error('Something went wrong')])
+      assertThrows(() => sut.value, 'Cannot get the value of a failed result.')
+    })
   })
 })
