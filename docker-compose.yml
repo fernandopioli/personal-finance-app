@@ -1,0 +1,9 @@
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: .docker/Dockerfile
+    container_name: finance-app
+    volumes:
+      - .:/app
+    working_dir: /app
