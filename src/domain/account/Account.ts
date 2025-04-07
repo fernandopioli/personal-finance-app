@@ -4,81 +4,44 @@ import {
   InvalidAccountTypeError,
   InvalidAccountBalanceError,
 } from '@domain/account/errors'
-
-export interface AccountCreateInput {
-  bankId: string
-  name: string
-  type: 'corrente' | 'poupanca'
-  agency?: string
-  number?: string
-}
-export interface AccountUpdateInput {
-  bankId?: string
-  name?: string
-  type?: 'corrente' | 'poupanca'
-  agency?: string
-  number?: string
-}
-
-export interface AccountLoadInput {
-  id: string
-  bankId: string
-  name: string
-  type: 'corrente' | 'poupanca'
-  balance: number
-  agency?: string
-  number?: string
-  createdAt: Date
-  updatedAt: Date
-  deletedAt: Date | null
-}
+import {
+  AccountCreateInput,
+  AccountUpdateInput,
+  AccountLoadInput,
+  AccountProps,
+} from '@domain/account'
 
 export class Account extends Entity {
-  private _bankId: UniqueId
-  private _name: string
-  private _type: 'corrente' | 'poupanca'
-  private _balance: number
-  private _agency?: string
-  private _number?: string
+  private readonly _props: AccountProps
 
   private constructor(
-    bankId: UniqueId,
-    name: string,
-    type: 'corrente' | 'poupanca',
-    balance: number,
-    agency: string | undefined,
-    number: string | undefined,
+    props: AccountProps,
     id?: string,
     createdAt?: Date,
     updatedAt?: Date,
     deletedAt?: Date | null,
   ) {
     super(id, createdAt, updatedAt, deletedAt)
-    this._bankId = bankId
-    this._name = name
-    this._type = type
-    this._balance = balance
-    this._agency = agency
-    this._number = number
+    this._props = props
   }
 
   get bankId(): UniqueId {
-    return this._bankId
+    return this._props.bankId
   }
   get name(): string {
-    return this._name
+    return this._props.name
   }
   get type(): 'corrente' | 'poupanca' {
-    return this._type
+    return this._props.type
   }
   get balance(): number {
-    return this._balance
+    return this._props.balance
   }
   get agency(): string | undefined {
-    return this._agency
+    return this._props.agency
   }
   get number(): string | undefined {
-    return this._number
+    return this._props.number
   }
 
   public static create(input: AccountCreateInput): Result<Account> {
@@ -88,14 +51,16 @@ export class Account extends Entity {
       return Result.fail<Account>(validationResult.errors)
     }
 
-    const account = new Account(
-      UniqueId.create(input.bankId),
-      input.name,
-      input.type,
-      0,
-      input.agency,
-      input.number,
-    )
+    const props: AccountProps = {
+      bankId: UniqueId.create(input.bankId),
+      name: input.name,
+      type: input.type,
+      balance: 0,
+      agency: input.agency,
+      number: input.number,
+    }
+
+    const account = new Account(props)
     return Result.ok(account)
   }
 
@@ -104,8 +69,7 @@ export class Account extends Entity {
     validator.check('bankId', input.bankId).required()
     validator.check('name', input.name).required().minLength(3)
 
-    if (!['corrente', 'poupanca'].includes(input.type)) {
-      validator.check('type', input.type).required()
+    if (!this.isValidAccountType(input.type)) {
       validator.addError(new InvalidAccountTypeError('type', input.type))
     }
 
@@ -123,13 +87,18 @@ export class Account extends Entity {
     return Result.ok<void>(undefined)
   }
 
+  private static isValidAccountType(type: any): boolean {
+    return ['corrente', 'poupanca'].includes(type)
+  }
+
   private validateUpdate(input: AccountUpdateInput): Result<void> {
     const validator = new Validator()
+
     if (input.name) {
       validator.check('name', input.name).minLength(3)
     }
 
-    if (input.type && !['corrente', 'poupanca'].includes(input.type)) {
+    if (input.type && !Account.isValidAccountType(input.type)) {
       validator.addError(new InvalidAccountTypeError('type', input.type))
     }
 
@@ -148,13 +117,17 @@ export class Account extends Entity {
   }
 
   public static load(input: AccountLoadInput): Result<Account> {
+    const props: AccountProps = {
+      bankId: UniqueId.create(input.bankId),
+      name: input.name,
+      type: input.type,
+      balance: input.balance,
+      agency: input.agency,
+      number: input.number,
+    }
+
     const account = new Account(
-      UniqueId.create(input.bankId),
-      input.name,
-      input.type,
-      input.balance,
-      input.agency,
-      input.number,
+      props,
       input.id,
       input.createdAt,
       input.updatedAt,
@@ -170,11 +143,12 @@ export class Account extends Entity {
       return Result.fail<void>(validationResult.errors)
     }
 
-    if (input.bankId !== undefined) this._bankId = UniqueId.create(input.bankId)
-    if (input.name !== undefined) this._name = input.name
-    if (input.type !== undefined) this._type = input.type
-    if (input.agency !== undefined) this._agency = input.agency
-    if (input.number !== undefined) this._number = input.number
+    if (input.bankId !== undefined)
+      this._props.bankId = UniqueId.create(input.bankId)
+    if (input.name !== undefined) this._props.name = input.name
+    if (input.type !== undefined) this._props.type = input.type
+    if (input.agency !== undefined) this._props.agency = input.agency
+    if (input.number !== undefined) this._props.number = input.number
 
     this.updateTimestamp()
     return Result.ok(undefined)
@@ -186,7 +160,7 @@ export class Account extends Entity {
         new InvalidAccountBalanceError('balance', newBalance),
       ])
     }
-    this._balance = newBalance
+    this._props.balance = newBalance
     this.updateTimestamp()
     return Result.ok(undefined)
   }
