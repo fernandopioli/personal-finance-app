@@ -1,12 +1,15 @@
 import {
   ArrayNotEmptyError,
+  InvalidUuidError,
   MaxLengthError,
   MaxNumberError,
   MinLengthError,
   MinNumberError,
+  NumberRangeError,
   RequiredFieldError,
   ValidationError,
 } from '@domain/errors'
+import { UniqueId } from '@domain/core'
 
 export class FieldValidator {
   constructor(
@@ -35,6 +38,17 @@ export class FieldValidator {
     if (typeof this.value === 'number') {
       if (this.value > max) {
         this.errors.push(new MaxNumberError(this.fieldName, max, this.value))
+      }
+    }
+    return this
+  }
+
+  public numberInRange(min: number, max: number): this {
+    if (typeof this.value === 'number') {
+      if (this.value < min || this.value > max) {
+        this.errors.push(
+          new NumberRangeError(this.fieldName, min, max, this.value),
+        )
       }
     }
     return this
@@ -69,5 +83,12 @@ export class FieldValidator {
 
   private isEmpty(value: any): boolean {
     return value === null || value === undefined || value === ''
+  }
+
+  public isValidUuid(): this {
+    if (typeof this.value === 'string' && !UniqueId.isValid(this.value)) {
+      this.errors.push(new InvalidUuidError(this.fieldName, this.value))
+    }
+    return this
   }
 }

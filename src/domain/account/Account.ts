@@ -66,7 +66,7 @@ export class Account extends Entity {
 
   private static validateCreate(input: AccountCreateInput): Result<void> {
     const validator = new Validator()
-    validator.check('bankId', input.bankId).required()
+    validator.check('bankId', input.bankId).required().isValidUuid()
     validator.check('name', input.name).required().minLength(3)
 
     if (!this.isValidAccountType(input.type)) {
@@ -96,6 +96,10 @@ export class Account extends Entity {
 
     if (input.name) {
       validator.check('name', input.name).minLength(3)
+    }
+
+    if (input.bankId) {
+      validator.check('bankId', input.bankId).isValidUuid()
     }
 
     if (input.type && !Account.isValidAccountType(input.type)) {
