@@ -1,11 +1,11 @@
-import { Account } from '@domain/account'
+import { Account, AccountType } from '@domain/account'
 import { Result } from '@domain/core'
 
 describe('Account Entity', () => {
   const validCreateData = {
     bankId: '20354d7a-e4fe-47af-8ff6-187bca92f3f9',
     name: 'Minha Conta Nova',
-    type: 'poupanca' as 'poupanca' | 'corrente',
+    type: 'poupanca' as AccountType,
     agency: '1234',
     number: '5678',
   }
@@ -14,7 +14,7 @@ describe('Account Entity', () => {
     id: '8f2bd772-6af8-48a2-9326-6ef5049d51fa',
     bankId: '20354d7a-e4fe-47af-8ff6-187bca92f3f9',
     name: 'Minha Conta',
-    type: 'corrente' as 'corrente' | 'poupanca',
+    type: 'corrente' as AccountType,
     balance: 1000.55,
     agency: '12345',
     number: '987654',

@@ -9,6 +9,7 @@ import {
   AccountUpdateInput,
   AccountLoadInput,
   AccountProps,
+  AccountType,
 } from '@domain/account'
 
 export class Account extends Entity {
@@ -31,7 +32,7 @@ export class Account extends Entity {
   get name(): string {
     return this._props.name
   }
-  get type(): 'corrente' | 'poupanca' {
+  get type(): AccountType {
     return this._props.type
   }
   get balance(): number {
