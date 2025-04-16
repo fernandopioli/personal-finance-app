@@ -1,10 +1,13 @@
 import {
   ArrayNotEmptyError,
+  InvalidDateError,
+  InvalidDateRangeError,
   InvalidUuidError,
   MaxLengthError,
   MaxNumberError,
   MinLengthError,
   MinNumberError,
+  NegativeNumberError,
   NumberRangeError,
   RequiredFieldError,
   ValidationError,
@@ -86,8 +89,46 @@ export class FieldValidator {
   }
 
   public isValidUuid(): this {
-    if (typeof this.value === 'string' && !UniqueId.isValid(this.value)) {
-      this.errors.push(new InvalidUuidError(this.fieldName, this.value))
+    if (this.value) {
+      if (!UniqueId.isValid(this.value)) {
+        this.errors.push(new InvalidUuidError(this.fieldName, this.value))
+      }
+    }
+    return this
+  }
+
+  public isNonNegativeNumber(): this {
+    if (typeof this.value === 'number' && this.value < 0) {
+      this.errors.push(new NegativeNumberError(this.fieldName, this.value))
+    }
+    return this
+  }
+
+  public isDateAfter(
+    date: Date,
+    referenceFieldName: string = 'startDate',
+  ): this {
+    if (this.value instanceof Date && date instanceof Date) {
+      if (this.value <= date) {
+        this.errors.push(
+          new InvalidDateRangeError(this.fieldName, referenceFieldName),
+        )
+      }
+    }
+    return this
+  }
+
+  public isValidDate(): this {
+    if (this.value !== undefined && this.value !== null) {
+      if (!(this.value instanceof Date)) {
+        this.errors.push(new InvalidDateError(this.fieldName, this.value))
+        return this
+      }
+
+      const timestamp = this.value.getTime()
+      if (isNaN(timestamp)) {
+        this.errors.push(new InvalidDateError(this.fieldName, 'Invalid Date'))
+      }
     }
     return this
   }
