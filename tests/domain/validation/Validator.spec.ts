@@ -6,6 +6,11 @@ import {
   MinLengthError,
   MaxLengthError,
   ArrayNotEmptyError,
+  NegativeNumberError,
+  InvalidDateRangeError,
+  InvalidUuidError,
+  InvalidDateError,
+  NumberRangeError,
 } from '@domain/errors'
 
 describe('Validator + FieldValidator', () => {
@@ -67,6 +72,32 @@ describe('Validator + FieldValidator', () => {
     )
   })
 
+  it('should add NumberRangeError if number is outside range', () => {
+    createValidatorAndCheck(
+      (validator) => {
+        validator.check('day', -1).numberInRange(1, 31)
+        validator.check('month', 13).numberInRange(1, 12)
+      },
+      2,
+      (errors) => {
+        assertError(errors[0], NumberRangeError, 'day')
+        assertError(errors[1], NumberRangeError, 'month')
+        expect(errors[0].message).toContain('must be between 1 and 31')
+        expect(errors[1].message).toContain('must be between 1 and 12')
+      },
+    )
+  })
+
+  it('should NOT add NumberRangeError if number is within range', () => {
+    createValidatorAndCheck((validator) => {
+      validator.check('day', 15).numberInRange(1, 31)
+      validator.check('month', 6).numberInRange(1, 12)
+      // Min/max inclusive
+      validator.check('minValue', 1).numberInRange(1, 10)
+      validator.check('maxValue', 10).numberInRange(1, 10)
+    }, 0)
+  })
+
   it('should add MinLengthError if string is too short', () => {
     createValidatorAndCheck(
       (validator) => validator.check('username', 'ab').minLength(3),
@@ -95,6 +126,119 @@ describe('Validator + FieldValidator', () => {
         assertError(errors[1], ArrayNotEmptyError, 'options')
       },
     )
+  })
+
+  it('should add InvalidUuidError if string is not a valid UUID', () => {
+    createValidatorAndCheck(
+      (validator) => {
+        validator.check('id1', 'not-a-uuid').isValidUuid()
+        validator.check('id2', '123-456').isValidUuid()
+        validator.check('id3', 123456).isValidUuid()
+      },
+      3,
+      (errors) => {
+        assertError(errors[0], InvalidUuidError, 'id1')
+        assertError(errors[1], InvalidUuidError, 'id2')
+        assertError(errors[2], InvalidUuidError, 'id3')
+        expect(errors[0].message).toContain('must be a valid UUID')
+      },
+    )
+  })
+
+  it('should NOT add InvalidUuidError if string is a valid UUID', () => {
+    createValidatorAndCheck((validator) => {
+      validator
+        .check('id', '123e4567-e89b-42d3-a456-556642440000')
+        .isValidUuid()
+    }, 0)
+  })
+
+  it('should add NegativeNumberError if number is negative', () => {
+    createValidatorAndCheck(
+      (validator) => validator.check('amount', -100).isNonNegativeNumber(),
+      1,
+      (errors) => {
+        assertError(errors[0], NegativeNumberError, 'amount')
+        expect(errors[0].message).toContain(
+          'must be greater than or equal to 0',
+        )
+      },
+    )
+  })
+
+  it('should NOT add NegativeNumberError if number is zero or positive', () => {
+    createValidatorAndCheck((validator) => {
+      validator.check('amount1', 0).isNonNegativeNumber()
+      validator.check('amount2', 100).isNonNegativeNumber()
+    }, 0)
+  })
+
+  it('should add InvalidDateRangeError if date is not after reference date', () => {
+    const startDate = new Date('2023-05-01')
+
+    createValidatorAndCheck(
+      (validator) => {
+        // Data anterior à referência
+        validator
+          .check('endDate1', new Date('2023-04-30'))
+          .isDateAfter(startDate)
+        // Data igual à referência
+        validator
+          .check('endDate2', new Date('2023-05-01'))
+          .isDateAfter(startDate)
+      },
+      2,
+      (errors) => {
+        assertError(errors[0], InvalidDateRangeError, 'endDate1')
+        assertError(errors[1], InvalidDateRangeError, 'endDate2')
+        expect(errors[0].message).toContain('must be after startDate')
+      },
+    )
+  })
+
+  it('should NOT add InvalidDateRangeError if date is after reference date', () => {
+    const startDate = new Date('2023-05-01')
+
+    createValidatorAndCheck((validator) => {
+      validator.check('endDate', new Date('2023-05-02')).isDateAfter(startDate)
+    }, 0)
+  })
+
+  it('should add InvalidDateError if value is not a Date object', () => {
+    createValidatorAndCheck(
+      (validator) => {
+        validator.check('birthDate1', 'not-a-date').isValidDate()
+        validator.check('birthDate2', 123456).isValidDate()
+        validator.check('birthDate3', {}).isValidDate()
+      },
+      3,
+      (errors) => {
+        assertError(errors[0], InvalidDateError, 'birthDate1')
+        assertError(errors[1], InvalidDateError, 'birthDate2')
+        assertError(errors[2], InvalidDateError, 'birthDate3')
+      },
+    )
+  })
+
+  it('should add InvalidDateError if Date is invalid (NaN)', () => {
+    const invalidDate = new Date('invalid-date')
+
+    createValidatorAndCheck(
+      (validator) => {
+        validator.check('birthDate', invalidDate).isValidDate()
+      },
+      1,
+      (errors) => {
+        assertError(errors[0], InvalidDateError, 'birthDate')
+        expect(errors[0].message).toContain('must be a valid date')
+      },
+    )
+  })
+
+  it('should NOT add InvalidDateError if Date is valid', () => {
+    createValidatorAndCheck((validator) => {
+      validator.check('birthDate', new Date('2000-01-01')).isValidDate()
+    }, 0)
   })
 
   it('should collect multiple errors on different fields', () => {
