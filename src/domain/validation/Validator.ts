@@ -16,6 +16,10 @@ export class Validator {
     this.errors.push(error)
   }
 
+  public addErrors(errors: ValidationError[]): void {
+    this.errors.push(...errors)
+  }
+
   public hasErrors(): boolean {
     return this.errors.length > 0
   }
