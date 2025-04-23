@@ -1,11 +1,10 @@
 import { UniqueId } from '@domain/core'
-
-export type AccountType = 'corrente' | 'poupanca'
+import { AccountType } from './AccountType'
 
 export interface AccountCreateInput {
   bankId: string
   name: string
-  type: AccountType
+  type: string
   agency?: string
   number?: string
 }
@@ -13,7 +12,7 @@ export interface AccountCreateInput {
 export interface AccountUpdateInput {
   bankId?: string
   name?: string
-  type?: AccountType
+  type?: string
   agency?: string
   number?: string
 }
@@ -22,7 +21,7 @@ export interface AccountLoadInput {
   id: string
   bankId: string
   name: string
-  type: AccountType
+  type: string
   balance: number
   agency?: string
   number?: string

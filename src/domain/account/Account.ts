@@ -1,9 +1,6 @@
 import { Entity, Result, UniqueId } from '@domain/core'
 import { Validator } from '@domain/validation'
-import {
-  InvalidAccountTypeError,
-  InvalidAccountBalanceError,
-} from '@domain/account/errors'
+import { InvalidAccountBalanceError } from '@domain/account/errors'
 import {
   AccountCreateInput,
   AccountUpdateInput,
@@ -11,6 +8,7 @@ import {
   AccountProps,
   AccountType,
 } from '@domain/account'
+import { ValidationError } from '@domain/errors'
 
 export class Account extends Entity {
   private readonly _props: AccountProps
@@ -52,10 +50,12 @@ export class Account extends Entity {
       return Result.fail<Account>(validationResult.errors)
     }
 
+    const accountTypeResult = AccountType.create(input.type)
+
     const props: AccountProps = {
       bankId: UniqueId.create(input.bankId),
       name: input.name,
-      type: input.type,
+      type: accountTypeResult.value,
       balance: 0,
       agency: input.agency,
       number: input.number,
@@ -69,10 +69,7 @@ export class Account extends Entity {
     const validator = new Validator()
     validator.check('bankId', input.bankId).required().isValidUuid()
     validator.check('name', input.name).required().minLength(3)
-
-    if (!this.isValidAccountType(input.type)) {
-      validator.addError(new InvalidAccountTypeError('type', input.type))
-    }
+    validator.check('type', input.type).required()
 
     if (input.agency) {
       validator.check('agency', input.agency).maxLength(10)
@@ -81,15 +78,16 @@ export class Account extends Entity {
       validator.check('number', input.number).maxLength(20)
     }
 
+    const accountTypeResult = AccountType.validate(input.type)
+    if (accountTypeResult.isFailure) {
+      validator.addErrors(accountTypeResult.errors as ValidationError[])
+    }
+
     if (validator.hasErrors()) {
       return Result.fail<void>(validator.getErrors())
     }
 
     return Result.ok<void>(undefined)
-  }
-
-  private static isValidAccountType(type: any): boolean {
-    return ['corrente', 'poupanca'].includes(type)
   }
 
   private validateUpdate(input: AccountUpdateInput): Result<void> {
@@ -103,15 +101,18 @@ export class Account extends Entity {
       validator.check('bankId', input.bankId).isValidUuid()
     }
 
-    if (input.type && !Account.isValidAccountType(input.type)) {
-      validator.addError(new InvalidAccountTypeError('type', input.type))
-    }
-
     if (input.agency) {
       validator.check('agency', input.agency).maxLength(10)
     }
     if (input.number) {
       validator.check('number', input.number).maxLength(20)
+    }
+
+    if (input.type) {
+      const accountTypeResult = AccountType.validate(input.type)
+      if (accountTypeResult.isFailure) {
+        validator.addErrors(accountTypeResult.errors as ValidationError[])
+      }
     }
 
     if (validator.hasErrors()) {
@@ -122,10 +123,12 @@ export class Account extends Entity {
   }
 
   public static load(input: AccountLoadInput): Result<Account> {
+    const accountTypeResult = AccountType.create(input.type)
+
     const props: AccountProps = {
       bankId: UniqueId.create(input.bankId),
       name: input.name,
-      type: input.type,
+      type: accountTypeResult.value,
       balance: input.balance,
       agency: input.agency,
       number: input.number,
@@ -151,7 +154,13 @@ export class Account extends Entity {
     if (input.bankId !== undefined)
       this._props.bankId = UniqueId.create(input.bankId)
     if (input.name !== undefined) this._props.name = input.name
-    if (input.type !== undefined) this._props.type = input.type
+
+    if (input.type !== undefined) {
+      const accountTypeResult = AccountType.create(input.type)
+
+      this._props.type = accountTypeResult.value
+    }
+
     if (input.agency !== undefined) this._props.agency = input.agency
     if (input.number !== undefined) this._props.number = input.number
 
