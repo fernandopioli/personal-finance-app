@@ -5,9 +5,9 @@ import {
   InvoiceLoadInput,
   InvoiceUpdateInput,
   InvoiceProps,
-  InvoiceStatus,
 } from '@domain/invoice/InvoiceTypes'
-import { InvalidInvoiceStatusError } from '@domain/invoice/errors'
+import { InvoiceStatus } from '@domain/invoice'
+import { ValidationError } from '@domain/errors'
 
 export class Invoice extends Entity {
   private readonly _props: InvoiceProps
@@ -54,13 +54,15 @@ export class Invoice extends Entity {
       return Result.fail<Invoice>(validationResult.errors)
     }
 
+    let statusResult = InvoiceStatus.create(input.status ?? 'open')
+
     const props: InvoiceProps = {
       cardId: UniqueId.create(input.cardId),
       dueDate: input.dueDate,
       startDate: input.startDate,
       endDate: input.endDate,
       totalAmount: input.totalAmount ?? 0,
-      status: input.status ?? 'open',
+      status: statusResult.value,
     }
 
     const invoice = new Invoice(props)
@@ -68,13 +70,15 @@ export class Invoice extends Entity {
   }
 
   public static load(input: InvoiceLoadInput): Result<Invoice> {
+    const statusResult = InvoiceStatus.create(input.status)
+
     const props: InvoiceProps = {
       cardId: UniqueId.create(input.cardId),
       dueDate: input.dueDate,
       startDate: input.startDate,
       endDate: input.endDate,
       totalAmount: input.totalAmount,
-      status: input.status,
+      status: statusResult.value,
     }
 
     const invoice = new Invoice(
@@ -87,14 +91,13 @@ export class Invoice extends Entity {
     return Result.ok(invoice)
   }
 
-  public updateStatus(status: InvoiceStatus): Result<void> {
-    if (!Invoice.isValidInvoiceStatus(status)) {
-      return Result.fail<void>([
-        new InvalidInvoiceStatusError('status', status),
-      ])
+  public updateStatus(status: string): Result<void> {
+    const statusResult = InvoiceStatus.create(status)
+    if (statusResult.isFailure) {
+      return Result.fail<void>(statusResult.errors)
     }
 
-    this._props.status = status
+    this._props.status = statusResult.value
     this.updateTimestamp()
     return Result.ok<void>(undefined)
   }
@@ -120,7 +123,8 @@ export class Invoice extends Entity {
     }
 
     if (input.status) {
-      this._props.status = input.status
+      const statusResult = InvoiceStatus.create(input.status)
+      this._props.status = statusResult.value
     }
 
     if (input.totalAmount !== undefined) {
@@ -155,8 +159,11 @@ export class Invoice extends Entity {
       .isDateAfter(input.startDate, 'startDate')
     validator.check('totalAmount', input.totalAmount).isNonNegativeNumber()
 
-    if (input.status && !this.isValidInvoiceStatus(input.status)) {
-      validator.addError(new InvalidInvoiceStatusError('status', input.status))
+    if (input.status) {
+      const statusResult = InvoiceStatus.validate(input.status)
+      if (statusResult.isFailure) {
+        validator.addErrors(statusResult.errors as ValidationError[])
+      }
     }
 
     if (validator.hasErrors()) {
@@ -180,8 +187,11 @@ export class Invoice extends Entity {
     input.totalAmount &&
       validator.check('totalAmount', input.totalAmount).isNonNegativeNumber()
 
-    if (input.status && !Invoice.isValidInvoiceStatus(input.status)) {
-      validator.addError(new InvalidInvoiceStatusError('status', input.status))
+    if (input.status) {
+      const statusResult = InvoiceStatus.validate(input.status)
+      if (statusResult.isFailure) {
+        validator.addErrors(statusResult.errors as ValidationError[])
+      }
     }
 
     if (validator.hasErrors()) {
@@ -189,9 +199,5 @@ export class Invoice extends Entity {
     }
 
     return Result.ok<void>(undefined)
-  }
-
-  private static isValidInvoiceStatus(status: any): boolean {
-    return ['open', 'closed', 'paid'].includes(status)
   }
 }

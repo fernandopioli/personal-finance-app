@@ -1,6 +1,5 @@
 import { UniqueId } from '@domain/core'
-
-export type InvoiceStatus = 'open' | 'closed' | 'paid'
+import { InvoiceStatus } from '@domain/invoice'
 
 export interface InvoiceCreateInput {
   cardId: string
@@ -8,7 +7,7 @@ export interface InvoiceCreateInput {
   startDate: Date
   endDate: Date
   totalAmount?: number
-  status?: InvoiceStatus
+  status?: string
 }
 
 export interface InvoiceUpdateInput {
@@ -16,7 +15,7 @@ export interface InvoiceUpdateInput {
   startDate?: Date
   endDate?: Date
   totalAmount?: number
-  status?: InvoiceStatus
+  status?: string
 }
 
 export interface InvoiceLoadInput {
@@ -26,7 +25,7 @@ export interface InvoiceLoadInput {
   startDate: Date
   endDate: Date
   totalAmount: number
-  status: InvoiceStatus
+  status: string
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null

@@ -12,10 +12,6 @@ export class Validator {
     return this.errors
   }
 
-  public addError(error: ValidationError): void {
-    this.errors.push(error)
-  }
-
   public addErrors(errors: ValidationError[]): void {
     this.errors.push(...errors)
   }
