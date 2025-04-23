@@ -1,5 +1,9 @@
-import { Account, AccountType } from '@domain/account'
-import { Result } from '@domain/core'
+import { Account } from '@domain/account'
+import {
+  expectMultipleErrors,
+  expectFailureWithMessage,
+  expectSuccess,
+} from '@tests/utils'
 
 describe('Account Entity', () => {
   const validCreateData = {
@@ -28,36 +32,6 @@ describe('Account Entity', () => {
 
   const loadAccount = (overrides = {}) =>
     Account.load({ ...validAccountLoadData, ...overrides })
-
-  const expectFailureWithMessage = (
-    result: Result<any>,
-    messagePart: string,
-    length: number = 1,
-  ) => {
-    expect(result.isFailure).toBe(true)
-    expect(result.errors.length).toBeGreaterThanOrEqual(length)
-    const hasMsg = result.errors.some((err: any) =>
-      err.message.includes(messagePart),
-    )
-    expect(hasMsg).toBe(true)
-  }
-
-  const expectSuccess = <T>(result: Result<T>) => {
-    expect(result.isSuccess).toBe(true)
-    return result.value
-  }
-
-  const expectMultipleErrors = (
-    result: Result<any>,
-    expectedErrors: string[],
-  ) => {
-    expect(result.isFailure).toBe(true)
-    expect(result.errors.length).toBe(expectedErrors.length)
-
-    expectedErrors.forEach((expectedError, index) => {
-      expect(result.errors[index].message).toBe(expectedError)
-    })
-  }
 
   describe('create()', () => {
     it('should create a valid account with default balance = 0', () => {

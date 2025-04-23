@@ -1,4 +1,3 @@
-import { UniqueId } from '@domain/core'
 import { Invoice } from '@domain/invoice'
 import {
   InvoiceStatus,
@@ -6,9 +5,11 @@ import {
   InvoiceLoadInput,
   InvoiceUpdateInput,
 } from '@domain/invoice/InvoiceTypes'
-import { ValidationError } from '@domain/errors'
-import { Result } from '@domain/core'
-
+import {
+  expectSuccess,
+  expectFailureWithMessage,
+  expectFieldErrors,
+} from '@tests/utils'
 describe('Invoice Entity', () => {
   const validCreateData: InvoiceCreateInput = {
     cardId: '123e4567-e89b-42d3-a456-556642440000',
@@ -37,38 +38,6 @@ describe('Invoice Entity', () => {
 
   const loadInvoice = (overrides = {}) =>
     Invoice.load({ ...validLoadData, ...overrides })
-
-  const expectSuccess = <T>(result: Result<T>) => {
-    expect(result.isSuccess).toBe(true)
-    return result.value
-  }
-
-  const expectFailureWithMessage = (
-    result: Result<any>,
-    messagePart: string,
-    field?: string,
-  ) => {
-    expect(result.isFailure).toBe(true)
-    expect(result.errors.length).toBeGreaterThanOrEqual(1)
-
-    const matchingError = result.errors.find(
-      (err) =>
-        err.message.includes(messagePart) &&
-        (field ? (err as ValidationError).field === field : true),
-    )
-
-    expect(matchingError).toBeDefined()
-  }
-
-  const expectFieldErrors = (result: Result<any>, expectedFields: string[]) => {
-    expect(result.isFailure).toBe(true)
-
-    const errorFields = result.errors.map((e) => (e as ValidationError).field)
-
-    expectedFields.forEach((field) => {
-      expect(errorFields).toContain(field)
-    })
-  }
 
   describe('create()', () => {
     it('should create a valid invoice', () => {
@@ -109,17 +78,13 @@ describe('Invoice Entity', () => {
     it('should validate cardId is a valid UUID', () => {
       const result = createInvoice({ cardId: 'invalid-uuid' })
 
-      expectFailureWithMessage(result, 'must be a valid UUID', 'cardId')
+      expectFailureWithMessage(result, 'must be a valid UUID', 1)
     })
 
     it('should validate that totalAmount is non-negative', () => {
       const result = createInvoice({ totalAmount: -100 })
 
-      expectFailureWithMessage(
-        result,
-        'must be greater than or equal to 0',
-        'totalAmount',
-      )
+      expectFailureWithMessage(result, 'must be greater than or equal to 0', 1)
     })
 
     it('should validate invoice status is valid', () => {
@@ -127,11 +92,7 @@ describe('Invoice Entity', () => {
         status: 'invalid-status' as InvoiceStatus,
       })
 
-      expectFailureWithMessage(
-        result,
-        'must be "open", "closed" or "paid"',
-        'status',
-      )
+      expectFailureWithMessage(result, 'must be "open", "closed" or "paid"', 1)
     })
 
     it('should validate dueDate, startDate and endDate are valid dates', () => {
@@ -155,7 +116,7 @@ describe('Invoice Entity', () => {
         endDate: new Date('2023-05-14'),
       })
 
-      expectFailureWithMessage(result, 'must be after startDate', 'endDate')
+      expectFailureWithMessage(result, 'must be after startDate', 1)
     })
   })
 
@@ -289,7 +250,7 @@ describe('Invoice Entity', () => {
         expectFailureWithMessage(
           result,
           'must be "open", "closed" or "paid"',
-          'status',
+          1,
         )
         expect(invoice.status).toBe(validCreateData.status) // Não foi alterado
       })
@@ -305,7 +266,7 @@ describe('Invoice Entity', () => {
         expectFailureWithMessage(
           result,
           'must be greater than or equal to 0',
-          'totalAmount',
+          1,
         )
         expect(invoice.totalAmount).toBe(validCreateData.totalAmount) // Não foi alterado
       })
@@ -319,7 +280,7 @@ describe('Invoice Entity', () => {
 
         const result = invoice.updateData(updateData)
 
-        expectFailureWithMessage(result, 'must be after startDate', 'endDate')
+        expectFailureWithMessage(result, 'must be after startDate', 1)
         // Valores não foram alterados
         expect(invoice.startDate).toEqual(validCreateData.startDate)
         expect(invoice.endDate).toEqual(validCreateData.endDate)
@@ -338,7 +299,7 @@ describe('Invoice Entity', () => {
 
         const result = invoice.updateData(updateData)
 
-        expectFailureWithMessage(result, 'must be after startDate', 'endDate')
+        expectFailureWithMessage(result, 'must be after startDate', 1)
         // EndDate não foi alterado
         expect(invoice.endDate).toEqual(validCreateData.endDate)
       })
@@ -351,7 +312,7 @@ describe('Invoice Entity', () => {
 
         const result = invoice.updateData(updateData)
 
-        expectFailureWithMessage(result, 'must be after startDate', 'endDate')
+        expectFailureWithMessage(result, 'must be after startDate', 1)
         // StartDate não foi alterado
         expect(invoice.startDate).toEqual(validCreateData.startDate)
       })

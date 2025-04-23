@@ -1,6 +1,6 @@
 import { Card } from '@domain/card'
 import { Result } from '@domain/core'
-
+import { expectFailureWithMessage } from '@tests/utils'
 describe('Card Entity', () => {
   const validCreateData = {
     name: 'Meu Cartão',
@@ -31,19 +31,6 @@ describe('Card Entity', () => {
   const expectSuccess = <T>(result: Result<T>) => {
     expect(result.isSuccess).toBe(true)
     return result.value
-  }
-
-  const expectFailureWithMessage = (
-    result: Result<any>,
-    messagePart: string,
-    length: number = 1,
-  ) => {
-    expect(result.isFailure).toBe(true)
-    expect(result.errors.length).toBeGreaterThanOrEqual(length)
-    const hasMsg = result.errors.some((err: any) =>
-      err.message.includes(messagePart),
-    )
-    expect(hasMsg).toBe(true)
   }
 
   describe('create()', () => {

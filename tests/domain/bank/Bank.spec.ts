@@ -1,5 +1,6 @@
 import { Bank } from '@domain/bank'
 import { Result } from '@domain/core'
+import { expectFailureWithMessage } from '@tests/utils'
 
 describe('Bank Entity', () => {
   const validBankData = {
@@ -13,12 +14,6 @@ describe('Bank Entity', () => {
 
   const createBank = (overrides = {}) => {
     return Bank.load({ ...validBankData, ...overrides })
-  }
-
-  const expectFailureWithMessage = (result: Result<any>, message: string) => {
-    expect(result.isFailure).toBe(true)
-    expect(result.errors.length).toBe(1)
-    expect(result.errors[0].message).toContain(message)
   }
 
   it('should load a valid Bank with name >= 3 and code 3-length', () => {

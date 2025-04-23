@@ -1,24 +1,6 @@
 import { AccountType } from '@domain/account'
-import { Result } from '@domain/core'
+import { expectSuccess, expectFailureWithMessage } from '@tests/utils'
 describe('AccountType Value Object', () => {
-  const expectFailureWithMessage = (
-    result: Result<any>,
-    messagePart: string,
-    length: number = 1,
-  ) => {
-    expect(result.isFailure).toBe(true)
-    expect(result.errors.length).toBeGreaterThanOrEqual(length)
-    const hasMsg = result.errors.some((err: any) =>
-      err.message.includes(messagePart),
-    )
-    expect(hasMsg).toBe(true)
-  }
-
-  const expectSuccess = <T>(result: Result<T>) => {
-    expect(result.isSuccess).toBe(true)
-    return result.value
-  }
-
   it('should create valid AccountType instances', () => {
     const corrente = expectSuccess(AccountType.create('corrente'))
     const poupanca = expectSuccess(AccountType.create('poupanca'))
