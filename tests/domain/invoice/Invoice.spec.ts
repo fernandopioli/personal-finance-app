@@ -1,6 +1,5 @@
 import { Invoice } from '@domain/invoice'
 import {
-  InvoiceStatus,
   InvoiceCreateInput,
   InvoiceLoadInput,
   InvoiceUpdateInput,
@@ -48,7 +47,7 @@ describe('Invoice Entity', () => {
       expect(invoice.startDate).toEqual(validCreateData.startDate)
       expect(invoice.endDate).toEqual(validCreateData.endDate)
       expect(invoice.totalAmount).toBe(validCreateData.totalAmount)
-      expect(invoice.status).toBe(validCreateData.status)
+      expect(invoice.status.value).toBe(validCreateData.status)
     })
 
     it('should set default values when not provided', () => {
@@ -60,7 +59,7 @@ describe('Invoice Entity', () => {
       )
 
       expect(invoice.totalAmount).toBe(0)
-      expect(invoice.status).toBe('open')
+      expect(invoice.status.value).toBe('open')
     })
 
     it('should validate required fields', () => {
@@ -89,7 +88,7 @@ describe('Invoice Entity', () => {
 
     it('should validate invoice status is valid', () => {
       const result = createInvoice({
-        status: 'invalid-status' as InvoiceStatus,
+        status: 'invalid-status',
       })
 
       expectFailureWithMessage(result, 'must be "open", "closed" or "paid"', 1)
@@ -130,7 +129,7 @@ describe('Invoice Entity', () => {
       expect(invoice.startDate).toEqual(validLoadData.startDate)
       expect(invoice.endDate).toEqual(validLoadData.endDate)
       expect(invoice.totalAmount).toBe(validLoadData.totalAmount)
-      expect(invoice.status).toBe(validLoadData.status)
+      expect(invoice.status.value).toBe(validLoadData.status)
       expect(invoice.createdAt).toEqual(validLoadData.createdAt)
       expect(invoice.updatedAt).toEqual(validLoadData.updatedAt)
       expect(invoice.deletedAt).toEqual(validLoadData.deletedAt)
@@ -144,18 +143,18 @@ describe('Invoice Entity', () => {
         const result = invoice.updateStatus('closed')
 
         expect(result.isSuccess).toBe(true)
-        expect(invoice.status).toBe('closed')
+        expect(invoice.status.value).toBe('closed')
       })
 
       it('should validate new status', () => {
         const invoice = expectSuccess(createInvoice())
-        const result = invoice.updateStatus('invalid-status' as InvoiceStatus)
+        const result = invoice.updateStatus('invalid-status')
 
         expect(result.isFailure).toBe(true)
         expect(result.errors[0].message).toContain(
           'must be "open", "closed" or "paid"',
         )
-        expect(invoice.status).toBe('open') // Status não foi alterado
+        expect(invoice.status.value).toBe('open')
       })
     })
 
@@ -173,7 +172,7 @@ describe('Invoice Entity', () => {
         const result = invoice.updateTotalAmount(undefined as any)
 
         expectFailureWithMessage(result, 'is required')
-        expect(invoice.totalAmount).toBe(validCreateData.totalAmount) // Valor não foi alterado
+        expect(invoice.totalAmount).toBe(validCreateData.totalAmount)
       })
 
       it('should validate new amount is non-negative', () => {
@@ -181,7 +180,7 @@ describe('Invoice Entity', () => {
         const result = invoice.updateTotalAmount(-100)
 
         expectFailureWithMessage(result, 'must be greater than or equal to 0')
-        expect(invoice.totalAmount).toBe(validCreateData.totalAmount) // Valor não foi alterado
+        expect(invoice.totalAmount).toBe(validCreateData.totalAmount)
       })
     })
 
@@ -203,7 +202,7 @@ describe('Invoice Entity', () => {
         expect(invoice.startDate).toEqual(updateData.startDate)
         expect(invoice.endDate).toEqual(updateData.endDate)
         expect(invoice.totalAmount).toBe(updateData.totalAmount)
-        expect(invoice.status).toBe(updateData.status)
+        expect(invoice.status.value).toBe(updateData.status)
       })
 
       it('should validate dueDate, startDate and endDate are valid dates', () => {
@@ -242,7 +241,7 @@ describe('Invoice Entity', () => {
       it('should validate status is valid', () => {
         const invoice = expectSuccess(createInvoice())
         const updateData: InvoiceUpdateInput = {
-          status: 'invalid-status' as InvoiceStatus,
+          status: 'invalid-status',
         }
 
         const result = invoice.updateData(updateData)
@@ -252,7 +251,7 @@ describe('Invoice Entity', () => {
           'must be "open", "closed" or "paid"',
           1,
         )
-        expect(invoice.status).toBe(validCreateData.status) // Não foi alterado
+        expect(invoice.status.value).toBe(validCreateData.status)
       })
 
       it('should validate totalAmount is non-negative', () => {
@@ -268,7 +267,7 @@ describe('Invoice Entity', () => {
           'must be greater than or equal to 0',
           1,
         )
-        expect(invoice.totalAmount).toBe(validCreateData.totalAmount) // Não foi alterado
+        expect(invoice.totalAmount).toBe(validCreateData.totalAmount)
       })
 
       it('should validate endDate is after startDate when both are updated', () => {
@@ -281,7 +280,6 @@ describe('Invoice Entity', () => {
         const result = invoice.updateData(updateData)
 
         expectFailureWithMessage(result, 'must be after startDate', 1)
-        // Valores não foram alterados
         expect(invoice.startDate).toEqual(validCreateData.startDate)
         expect(invoice.endDate).toEqual(validCreateData.endDate)
       })
@@ -289,31 +287,29 @@ describe('Invoice Entity', () => {
       it('should validate endDate is after startDate when only endDate is updated', () => {
         const invoice = expectSuccess(
           createInvoice({
-            startDate: new Date('2023-05-10'), // Data de início mais tarde
+            startDate: new Date('2023-05-10'),
           }),
         )
 
         const updateData: InvoiceUpdateInput = {
-          endDate: new Date('2023-05-09'), // Antes da data de início
+          endDate: new Date('2023-05-09'),
         }
 
         const result = invoice.updateData(updateData)
 
         expectFailureWithMessage(result, 'must be after startDate', 1)
-        // EndDate não foi alterado
         expect(invoice.endDate).toEqual(validCreateData.endDate)
       })
 
       it('should validate endDate is after startDate when only startDate is updated', () => {
         const invoice = expectSuccess(createInvoice())
         const updateData: InvoiceUpdateInput = {
-          startDate: new Date('2023-05-15'), // Depois da data de fim original
+          startDate: new Date('2023-05-15'),
         }
 
         const result = invoice.updateData(updateData)
 
         expectFailureWithMessage(result, 'must be after startDate', 1)
-        // StartDate não foi alterado
         expect(invoice.startDate).toEqual(validCreateData.startDate)
       })
     })
