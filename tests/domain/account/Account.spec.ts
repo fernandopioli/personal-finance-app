@@ -5,7 +5,7 @@ describe('Account Entity', () => {
   const validCreateData = {
     bankId: '20354d7a-e4fe-47af-8ff6-187bca92f3f9',
     name: 'Minha Conta Nova',
-    type: 'poupanca' as AccountType,
+    type: 'poupanca',
     agency: '1234',
     number: '5678',
   }
@@ -14,7 +14,7 @@ describe('Account Entity', () => {
     id: '8f2bd772-6af8-48a2-9326-6ef5049d51fa',
     bankId: '20354d7a-e4fe-47af-8ff6-187bca92f3f9',
     name: 'Minha Conta',
-    type: 'corrente' as AccountType,
+    type: 'corrente',
     balance: 1000.55,
     agency: '12345',
     number: '987654',
@@ -66,7 +66,7 @@ describe('Account Entity', () => {
       expect(account.id).toBeDefined()
       expect(account.bankId.value).toBe(validCreateData.bankId)
       expect(account.name).toBe(validCreateData.name)
-      expect(account.type).toBe(validCreateData.type)
+      expect(account.type.value).toBe(validCreateData.type)
       expect(account.balance).toBe(0)
       expect(account.agency).toBe(validCreateData.agency)
       expect(account.number).toBe(validCreateData.number)
@@ -74,12 +74,12 @@ describe('Account Entity', () => {
 
     it('should create a valid account with type "corrente"', () => {
       const account = expectSuccess(createAccount({ type: 'corrente' }))
-      expect(account.type).toBe('corrente')
+      expect(account.type.value).toBe('corrente')
     })
 
     it('should create a valid account with type "poupanca"', () => {
       const account = expectSuccess(createAccount({ type: 'poupanca' }))
-      expect(account.type).toBe('poupanca')
+      expect(account.type.value).toBe('poupanca')
     })
 
     it('should fail if bankId is empty', () => {
@@ -106,7 +106,7 @@ describe('Account Entity', () => {
     })
 
     it('should fail if type is invalid', () => {
-      const result = createAccount({ type: 'investimento' as any })
+      const result = createAccount({ type: 'investimento' })
       expectFailureWithMessage(
         result,
         'The field "type" must be "corrente" or "poupanca". Current: investimento',
@@ -141,7 +141,7 @@ describe('Account Entity', () => {
       expect(account.id.value).toBe(validAccountLoadData.id)
       expect(account.bankId.value).toBe(validAccountLoadData.bankId)
       expect(account.name).toBe(validAccountLoadData.name)
-      expect(account.type).toBe(validAccountLoadData.type)
+      expect(account.type.value).toBe(validAccountLoadData.type)
       expect(account.balance).toBe(validAccountLoadData.balance)
       expect(account.agency).toBe(validAccountLoadData.agency)
       expect(account.number).toBe(validAccountLoadData.number)
@@ -165,7 +165,7 @@ describe('Account Entity', () => {
       expect(account.id.value).toBe(validAccountLoadData.id)
       expect(account.bankId.value).toBe('20354d7a-e4fe-47af-8ff6-187bca92f3f9')
       expect(account.name).toBe('Conta Editada')
-      expect(account.type).toBe('corrente')
+      expect(account.type.value).toBe('corrente')
       expect(account.agency).toBe('999')
       expect(account.number).toBe('XYZ')
     })
@@ -176,7 +176,7 @@ describe('Account Entity', () => {
       const failResult = account.updateData({
         name: 'x',
         bankId: 'not-a-valid-uuid',
-        type: 'investimento' as any,
+        type: 'investimento',
         agency: '12345678901',
         number: '123456789012345678901',
       })
@@ -184,9 +184,9 @@ describe('Account Entity', () => {
       expectMultipleErrors(failResult, [
         'The field "name" must be at least 3 characters. Current length: 1',
         'The field "bankId" must be a valid UUID. Current: not-a-valid-uuid',
-        'The field "type" must be "corrente" or "poupanca". Current: investimento',
         'The field "agency" must be at most 10 characters. Current length: 11',
         'The field "number" must be at most 20 characters. Current length: 21',
+        'The field "type" must be "corrente" or "poupanca". Current: investimento',
       ])
     })
 
