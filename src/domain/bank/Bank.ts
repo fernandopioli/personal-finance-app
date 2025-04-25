@@ -1,6 +1,11 @@
 import { Entity, Result } from '@domain/core'
 import { Validator } from '@domain/validation'
 
+export interface BankProps {
+  name: string
+  code: string
+}
+
 interface BankInput {
   id: string
   name: string
@@ -11,20 +16,17 @@ interface BankInput {
 }
 
 export class Bank extends Entity {
-  private readonly _name: string
-  private readonly _code: string
+  private readonly _props: BankProps
 
   private constructor(
-    id: string,
-    name: string,
-    code: string,
-    createdAt: Date,
-    updatedAt: Date,
-    deletedAt: Date | null,
+    props: BankProps,
+    id?: string,
+    createdAt?: Date,
+    updatedAt?: Date,
+    deletedAt?: Date | null,
   ) {
     super(id, createdAt, updatedAt, deletedAt)
-    this._name = name
-    this._code = code
+    this._props = props
   }
 
   public static load(input: BankInput): Result<Bank> {
@@ -36,11 +38,15 @@ export class Bank extends Entity {
       return Result.fail<Bank>(validator.getErrors())
     }
 
+    const props: BankProps = {
+      name: input.name,
+      code: input.code,
+    }
+
     return Result.ok<Bank>(
       new Bank(
+        props,
         input.id,
-        input.name,
-        input.code,
         input.createdAt,
         input.updatedAt,
         input.deletedAt,
@@ -49,10 +55,10 @@ export class Bank extends Entity {
   }
 
   get name(): string {
-    return this._name
+    return this._props.name
   }
 
   get code(): string {
-    return this._code
+    return this._props.code
   }
 }

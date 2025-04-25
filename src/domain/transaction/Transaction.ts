@@ -245,7 +245,7 @@ export class Transaction extends Entity {
 
   private static validateInstallmentInfo(
     validator: Validator,
-    input: TransactionCreateInput | TransactionUpdateInput,
+    input: TransactionCreateInput,
   ): void {
     const hasCurrentInstallment = input.currentInstallment !== undefined
     const hasTotalInstallments = input.totalInstallments !== undefined

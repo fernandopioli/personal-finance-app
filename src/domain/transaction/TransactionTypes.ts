@@ -20,11 +20,6 @@ export interface TransactionUpdateInput {
   description?: string
   categoryId?: string
   amount?: number
-  accountId?: string
-  invoiceId?: string
-  currentInstallment?: number
-  totalInstallments?: number
-  installmentGroupId?: string
 }
 
 export interface TransactionLoadInput {

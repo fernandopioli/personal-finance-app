@@ -137,7 +137,8 @@ export class FieldValidator {
   public isCurrency(): this {
     if (
       typeof this.value !== 'number' ||
-      (typeof this.value === 'number' && isNaN(this.value))
+      (typeof this.value === 'number' && isNaN(this.value)) ||
+      (typeof this.value === 'number' && this.value < 0)
     ) {
       this.errors.push(new InvalidCurrencyError(this.fieldName, this.value))
     }

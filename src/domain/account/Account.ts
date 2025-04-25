@@ -1,6 +1,5 @@
 import { Entity, Result, UniqueId } from '@domain/core'
 import { Validator } from '@domain/validation'
-import { InvalidAccountBalanceError } from '@domain/account/errors'
 import {
   AccountCreateInput,
   AccountUpdateInput,
@@ -169,10 +168,10 @@ export class Account extends Entity {
   }
 
   public setBalance(newBalance: number): Result<void> {
-    if (newBalance < 0) {
-      return Result.fail<void>([
-        new InvalidAccountBalanceError('balance', newBalance),
-      ])
+    const validator = new Validator()
+    validator.check('balance', newBalance).required().isCurrency()
+    if (validator.hasErrors()) {
+      return Result.fail<void>(validator.getErrors())
     }
     this._props.balance = newBalance
     this.updateTimestamp()

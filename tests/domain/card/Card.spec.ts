@@ -71,9 +71,12 @@ describe('Card Entity', () => {
       expectFailureWithMessage(result, 'limit" is required')
     })
 
-    it('should fail if limit is negative', () => {
+    it('should fail if limit is not a valid currency', () => {
       const result = createCard({ limit: -100 })
-      expectFailureWithMessage(result, 'limit" must be >= 0')
+      expectFailureWithMessage(
+        result,
+        'The field "limit" must be a valid currency value.',
+      )
     })
 
     it('should fail if closingDay is outside valid range', () => {
@@ -169,7 +172,10 @@ describe('Card Entity', () => {
       const card = expectSuccess(createCard())
       const resultUpdate = card.updateData({ limit: -200 })
 
-      expectFailureWithMessage(resultUpdate, 'limit" must be >= 0')
+      expectFailureWithMessage(
+        resultUpdate,
+        'The field "limit" must be a valid currency value.',
+      )
       expect(card.limit).toBe(validCreateData.limit)
     })
 
@@ -220,7 +226,10 @@ describe('Card Entity', () => {
       const card = expectSuccess(createCard())
       const resultLimit = card.updateLimit(-500)
 
-      expectFailureWithMessage(resultLimit, 'limit" must be >= 0')
+      expectFailureWithMessage(
+        resultLimit,
+        'The field "limit" must be a valid currency value.',
+      )
       expect(card.limit).toBe(validCreateData.limit)
     })
   })

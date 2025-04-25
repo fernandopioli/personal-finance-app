@@ -83,7 +83,10 @@ describe('Invoice Entity', () => {
     it('should validate that totalAmount is non-negative', () => {
       const result = createInvoice({ totalAmount: -100 })
 
-      expectFailureWithMessage(result, 'must be greater than or equal to 0', 1)
+      expectFailureWithMessage(
+        result,
+        'The field "totalAmount" must be a valid currency value.',
+      )
     })
 
     it('should validate invoice status is valid', () => {
@@ -175,11 +178,14 @@ describe('Invoice Entity', () => {
         expect(invoice.totalAmount).toBe(validCreateData.totalAmount)
       })
 
-      it('should validate new amount is non-negative', () => {
+      it('should validate new amount is a valid currency', () => {
         const invoice = expectSuccess(createInvoice())
         const result = invoice.updateTotalAmount(-100)
 
-        expectFailureWithMessage(result, 'must be greater than or equal to 0')
+        expectFailureWithMessage(
+          result,
+          'The field "totalAmount" must be a valid currency value.',
+        )
         expect(invoice.totalAmount).toBe(validCreateData.totalAmount)
       })
     })
@@ -254,7 +260,7 @@ describe('Invoice Entity', () => {
         expect(invoice.status.value).toBe(validCreateData.status)
       })
 
-      it('should validate totalAmount is non-negative', () => {
+      it('should validate totalAmount is a valid currency', () => {
         const invoice = expectSuccess(createInvoice())
         const updateData: InvoiceUpdateInput = {
           totalAmount: -100,
@@ -264,7 +270,7 @@ describe('Invoice Entity', () => {
 
         expectFailureWithMessage(
           result,
-          'must be greater than or equal to 0',
+          'The field "totalAmount" must be a valid currency value.',
           1,
         )
         expect(invoice.totalAmount).toBe(validCreateData.totalAmount)

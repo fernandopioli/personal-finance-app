@@ -104,7 +104,7 @@ export class Invoice extends Entity {
 
   public updateTotalAmount(amount: number): Result<void> {
     const validator = new Validator()
-    validator.check('totalAmount', amount).required().isNonNegativeNumber()
+    validator.check('totalAmount', amount).required().isCurrency()
 
     if (validator.hasErrors()) {
       return Result.fail<void>(validator.getErrors())
@@ -157,7 +157,8 @@ export class Invoice extends Entity {
       .required()
       .isValidDate()
       .isDateAfter(input.startDate, 'startDate')
-    validator.check('totalAmount', input.totalAmount).isNonNegativeNumber()
+    input.totalAmount &&
+      validator.check('totalAmount', input.totalAmount).isCurrency()
 
     if (input.status) {
       const statusResult = InvoiceStatus.validate(input.status)
@@ -185,7 +186,7 @@ export class Invoice extends Entity {
         .isDateAfter(input.startDate ?? this.startDate, 'startDate')
     }
     input.totalAmount &&
-      validator.check('totalAmount', input.totalAmount).isNonNegativeNumber()
+      validator.check('totalAmount', input.totalAmount).isCurrency()
 
     if (input.status) {
       const statusResult = InvoiceStatus.validate(input.status)

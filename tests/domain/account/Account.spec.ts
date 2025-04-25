@@ -175,7 +175,7 @@ describe('Account Entity', () => {
       const failResult = account.setBalance(-100)
       expectFailureWithMessage(
         failResult,
-        'Balance cannot be negative. Current: -100',
+        'The field "balance" must be a valid currency value. Current: -100',
       )
     })
   })

@@ -11,6 +11,7 @@ import {
   InvalidUuidError,
   InvalidDateError,
   NumberRangeError,
+  InvalidCurrencyError,
 } from '@domain/errors'
 
 describe('Validator + FieldValidator', () => {
@@ -241,6 +242,25 @@ describe('Validator + FieldValidator', () => {
     }, 0)
   })
 
+  it('should add InvalidCurrencyError if value is not a valid currency', () => {
+    createValidatorAndCheck(
+      (validator) => {
+        validator.check('amount', 'not-a-currency').isCurrency()
+      },
+      1,
+      (errors) => {
+        assertError(errors[0], InvalidCurrencyError, 'amount')
+      },
+    )
+  })
+
+  it('should add InvalidCurrencyError if value is negative', () => {
+    createValidatorAndCheck(
+      (validator) => validator.check('amount', -100).isCurrency(),
+      1,
+      (errors) => assertError(errors[0], InvalidCurrencyError, 'amount'),
+    )
+  })
   it('should collect multiple errors on different fields', () => {
     createValidatorAndCheck(
       (validator) => {

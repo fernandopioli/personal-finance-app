@@ -6,7 +6,6 @@ import {
   CardUpdateInput,
   CardProps,
 } from '@domain/card'
-import { InvalidUuidError } from '@domain/errors'
 
 export class Card extends Entity {
   private readonly _props: CardProps
@@ -86,7 +85,7 @@ export class Card extends Entity {
     const validator = new Validator()
 
     validator.check('name', input.name).required().minLength(3)
-    validator.check('limit', input.limit).required().minNumber(0)
+    validator.check('limit', input.limit).required().isCurrency()
     validator
       .check('closingDay', input.closingDay)
       .required()
@@ -129,7 +128,7 @@ export class Card extends Entity {
     }
 
     if (input.limit !== undefined) {
-      validator.check('limit', input.limit).minNumber(0)
+      validator.check('limit', input.limit).isCurrency()
     }
 
     if (input.closingDay !== undefined) {
@@ -154,7 +153,7 @@ export class Card extends Entity {
   public updateLimit(newLimit: number): Result<void> {
     const validator = new Validator()
 
-    validator.check('limit', newLimit).minNumber(0)
+    validator.check('limit', newLimit).isCurrency()
 
     if (validator.hasErrors()) {
       return Result.fail<void>(validator.getErrors())
