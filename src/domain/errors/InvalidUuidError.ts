@@ -1,4 +1,4 @@
-import { ValidationError } from './ValidationError'
+import { ValidationError } from '@domain/errors'
 
 export class InvalidUuidError extends ValidationError {
   constructor(field: string, value: string) {

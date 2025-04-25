@@ -5,8 +5,8 @@ import {
   InvoiceLoadInput,
   InvoiceUpdateInput,
   InvoiceProps,
-} from '@domain/invoice/InvoiceTypes'
-import { InvoiceStatus } from '@domain/invoice'
+  InvoiceStatus,
+} from '@domain/invoice'
 import { ValidationError } from '@domain/errors'
 
 export class Invoice extends Entity {

@@ -1,5 +1,5 @@
 import { UniqueId } from '@domain/core'
-import { AccountType } from './AccountType'
+import { AccountType } from '@domain/account'
 
 export interface AccountCreateInput {
   bankId: string

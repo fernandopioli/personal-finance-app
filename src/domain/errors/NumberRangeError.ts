@@ -1,4 +1,4 @@
-import { ValidationError } from './ValidationError'
+import { ValidationError } from '@domain/errors'
 
 export class NumberRangeError extends ValidationError {
   constructor(field: string, min: number, max: number, actual: number) {

@@ -1,5 +1,5 @@
 import { UniqueId } from '@domain/core'
-import { TransactionType } from './TransactionType'
+import { TransactionType } from '@domain/transaction'
 
 export interface TransactionCreateInput {
   date: Date

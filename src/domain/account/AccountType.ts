@@ -1,5 +1,4 @@
-import { ValueObject } from '@domain/core'
-import { Result } from '@domain/core'
+import { ValueObject, Result } from '@domain/core'
 import { InvalidAccountTypeError } from '@domain/account/errors'
 
 export class AccountType extends ValueObject<string> {
