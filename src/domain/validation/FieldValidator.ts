@@ -1,5 +1,6 @@
 import {
   ArrayNotEmptyError,
+  InvalidCurrencyError,
   InvalidDateError,
   InvalidDateRangeError,
   InvalidUuidError,
@@ -129,6 +130,16 @@ export class FieldValidator {
       if (isNaN(timestamp)) {
         this.errors.push(new InvalidDateError(this.fieldName, 'Invalid Date'))
       }
+    }
+    return this
+  }
+
+  public isCurrency(): this {
+    if (
+      typeof this.value !== 'number' ||
+      (typeof this.value === 'number' && isNaN(this.value))
+    ) {
+      this.errors.push(new InvalidCurrencyError(this.fieldName, this.value))
     }
     return this
   }
