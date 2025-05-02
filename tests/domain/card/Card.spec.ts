@@ -1,6 +1,14 @@
 import { Card } from '@domain/card'
-import { Result } from '@domain/core'
-import { expectFailureWithMessage } from '@tests/utils'
+import {
+  RequiredFieldError,
+  InvalidUuidError,
+  MinLengthError,
+  InvalidCurrencyError,
+  NumberRangeError,
+  ValidationError,
+} from '@domain/errors'
+import { domainAssert } from '@tests/framework'
+
 describe('Card Entity', () => {
   const validCreateData = {
     name: 'Meu Cartão',
@@ -11,12 +19,8 @@ describe('Card Entity', () => {
   }
 
   const validLoadData = {
+    ...validCreateData,
     id: '8f2bd772-6af8-48a2-9326-6ef5049d51fa',
-    name: 'Cartão Existente',
-    limit: 2000,
-    closingDay: 15,
-    dueDay: 27,
-    accountId: '20354d7a-e4fe-47af-8ff6-187bca92f3f9',
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -28,108 +32,131 @@ describe('Card Entity', () => {
   const loadCard = (overrides = {}) =>
     Card.load({ ...validLoadData, ...overrides })
 
-  const expectSuccess = <T>(result: Result<T>) => {
-    expect(result.isSuccess).toBe(true)
-    return result.value
-  }
-
   describe('create()', () => {
     it('should create a valid card with all required fields', () => {
-      const card = expectSuccess(createCard())
+      const result = createCard()
+      const card = domainAssert.expectResultSuccess(result)
 
-      expect(card.id).toBeDefined()
-      expect(card.name).toBe(validCreateData.name)
-      expect(card.limit).toBe(validCreateData.limit)
-      expect(card.closingDay).toBe(validCreateData.closingDay)
-      expect(card.dueDay).toBe(validCreateData.dueDay)
-      expect(card.accountId).toBeDefined()
-      expect(card.accountId.value).toBe(validCreateData.accountId)
-    })
+      domainAssert.expectValidEntity(card)
 
-    it('should fail if accountId is not provided', () => {
-      const result = createCard({ accountId: undefined })
-      expectFailureWithMessage(result, '"accountId" is required')
-    })
-
-    it('should fail if accountId is not a valid UUID', () => {
-      const result = createCard({ accountId: 'not-a-valid-uuid' })
-      expectFailureWithMessage(result, 'must be a valid UUID')
+      domainAssert.assertEqual(card.name, validCreateData.name)
+      domainAssert.assertEqual(card.limit, validCreateData.limit)
+      domainAssert.assertEqual(card.closingDay, validCreateData.closingDay)
+      domainAssert.assertEqual(card.dueDay, validCreateData.dueDay)
+      domainAssert.expectUniqueIdEquals(
+        card.accountId,
+        validCreateData.accountId,
+      )
     })
 
     it('should fail if name is empty', () => {
       const result = createCard({ name: '' })
-      expectFailureWithMessage(result, '"name" is required')
+
+      domainAssert.expectResultFailure(result, [new RequiredFieldError('name')])
     })
 
     it('should fail if name is less than 3 characters', () => {
       const result = createCard({ name: 'AB' })
-      expectFailureWithMessage(result, 'name" must be at least 3 characters')
+
+      domainAssert.expectResultFailure(result, [
+        new MinLengthError('name', 3, 2),
+      ])
     })
 
     it('should fail if limit is empty', () => {
       const result = createCard({ limit: undefined })
-      expectFailureWithMessage(result, 'limit" is required')
+
+      domainAssert.expectResultFailure(result, [
+        new RequiredFieldError('limit'),
+      ])
     })
 
     it('should fail if limit is not a valid currency', () => {
       const result = createCard({ limit: -100 })
-      expectFailureWithMessage(
-        result,
-        'The field "limit" must be a valid currency value.',
-      )
+
+      domainAssert.expectResultFailure(result, [
+        new InvalidCurrencyError('limit', -100),
+      ])
     })
 
-    it('should fail if closingDay is outside valid range', () => {
+    it('should fail if closingDay is empty', () => {
+      const result = createCard({ closingDay: undefined })
+
+      domainAssert.expectResultFailure(result, [
+        new RequiredFieldError('closingDay'),
+      ])
+    })
+
+    it('should fail if closingDay is below valid range', () => {
       const resultLow = createCard({ closingDay: 0 })
-      expectFailureWithMessage(
-        resultLow,
-        'The field "closingDay" must be between 1 and 31',
-      )
-
-      const resultHigh = createCard({ closingDay: 32 })
-      expectFailureWithMessage(
-        resultHigh,
-        'The field "closingDay" must be between 1 and 31',
-      )
+      domainAssert.expectResultFailure(resultLow, [
+        new NumberRangeError('closingDay', 1, 31, 0),
+      ])
     })
 
-    it('should fail if dueDay is outside valid range', () => {
-      const resultLow = createCard({ dueDay: 0 })
-      expectFailureWithMessage(
-        resultLow,
-        'The field "dueDay" must be between 1 and 31',
-      )
+    it('should fail if closingDay is above valid range', () => {
+      const resultHigh = createCard({ closingDay: 32 })
+      domainAssert.expectResultFailure(resultHigh, [
+        new NumberRangeError('closingDay', 1, 31, 32),
+      ])
+    })
 
+    it('should fail if dueDay is empty', () => {
+      const result = createCard({ dueDay: undefined })
+
+      domainAssert.expectResultFailure(result, [
+        new RequiredFieldError('dueDay'),
+      ])
+    })
+    it('should fail if dueDay is below valid range', () => {
+      const resultLow = createCard({ dueDay: 0 })
+      domainAssert.expectResultFailure(resultLow, [
+        new NumberRangeError('dueDay', 1, 31, 0),
+      ])
+    })
+    it('should fail if dueDay is above valid range', () => {
       const resultHigh = createCard({ dueDay: 32 })
-      expectFailureWithMessage(
-        resultHigh,
-        'The field "dueDay" must be between 1 and 31',
-      )
+      domainAssert.expectResultFailure(resultHigh, [
+        new NumberRangeError('dueDay', 1, 31, 32),
+      ])
+    })
+
+    it('should fail if accountId is empty', () => {
+      const result = createCard({ accountId: undefined })
+
+      domainAssert.expectResultFailure(result, [
+        new RequiredFieldError('accountId'),
+      ])
     })
 
     it('should fail if accountId is not a valid UUID', () => {
       const result = createCard({ accountId: 'not-a-valid-uuid' })
-      expectFailureWithMessage(result, 'must be a valid UUID')
+
+      domainAssert.expectResultFailure(result, [
+        new InvalidUuidError('accountId', 'not-a-valid-uuid'),
+      ])
     })
   })
 
   describe('load()', () => {
     it('should load a valid card with all properties', () => {
-      const card = expectSuccess(loadCard())
+      const result = loadCard()
+      const card = domainAssert.expectResultSuccess(result)
 
-      expect(card.id.value).toBe(validLoadData.id)
-      expect(card.name).toBe(validLoadData.name)
-      expect(card.limit).toBe(validLoadData.limit)
-      expect(card.closingDay).toBe(validLoadData.closingDay)
-      expect(card.dueDay).toBe(validLoadData.dueDay)
-      expect(card.accountId).toBeDefined()
-      expect(card.accountId.value).toBe(validLoadData.accountId)
+      domainAssert.expectValidEntity(card, validLoadData.id)
+
+      domainAssert.assertEqual(card.name, validLoadData.name)
+      domainAssert.assertEqual(card.limit, validLoadData.limit)
+      domainAssert.assertEqual(card.closingDay, validLoadData.closingDay)
+      domainAssert.assertEqual(card.dueDay, validLoadData.dueDay)
     })
   })
 
   describe('updateData()', () => {
     it('should update fields when valid', () => {
-      const card = expectSuccess(createCard())
+      const createResult = createCard()
+      const card = domainAssert.expectResultSuccess(createResult)
+
       const updates = {
         name: 'Novo Nome Cartão',
         limit: 3500,
@@ -138,99 +165,124 @@ describe('Card Entity', () => {
         accountId: '8f2bd772-6af8-48a2-9326-6ef5049d51fa',
       }
 
-      const resultUpdate = card.updateData(updates)
+      const updateResult = card.updateData(updates)
+      domainAssert.expectResultSuccess(updateResult)
 
-      expect(resultUpdate.isSuccess).toBe(true)
-      expect(card.name).toBe(updates.name)
-      expect(card.limit).toBe(updates.limit)
-      expect(card.closingDay).toBe(updates.closingDay)
-      expect(card.dueDay).toBe(updates.dueDay)
-      expect(card.accountId).toBeDefined()
-      expect(card.accountId.value).toBe(updates.accountId)
-    })
-
-    it('should fail if accountId is not a valid UUID', () => {
-      const card = expectSuccess(createCard())
-      const resultUpdate = card.updateData({ accountId: 'not-a-valid-uuid' })
-
-      expectFailureWithMessage(resultUpdate, 'must be a valid UUID')
-      expect(card.accountId.value).toBe(validCreateData.accountId)
+      domainAssert.assertEqual(card.name, updates.name)
+      domainAssert.assertEqual(card.limit, updates.limit)
+      domainAssert.assertEqual(card.closingDay, updates.closingDay)
+      domainAssert.assertEqual(card.dueDay, updates.dueDay)
+      domainAssert.expectUniqueIdEquals(card.accountId, updates.accountId)
     })
 
     it('should fail if name is invalid', () => {
-      const card = expectSuccess(createCard())
-      const resultUpdate = card.updateData({ name: 'AB' })
+      const card = createCard().value
+      const originalName = card.name
 
-      expectFailureWithMessage(
-        resultUpdate,
-        'name" must be at least 3 characters',
-      )
-      expect(card.name).toBe(validCreateData.name)
+      const updateResult = card.updateData({ name: 'AB' })
+
+      domainAssert.expectResultFailure(updateResult, [
+        new MinLengthError('name', 3, 2),
+      ])
+      domainAssert.assertEqual(card.name, originalName)
     })
 
     it('should fail if limit is negative', () => {
-      const card = expectSuccess(createCard())
-      const resultUpdate = card.updateData({ limit: -200 })
+      const card = createCard().value
+      const originalLimit = card.limit
 
-      expectFailureWithMessage(
-        resultUpdate,
-        'The field "limit" must be a valid currency value.',
-      )
-      expect(card.limit).toBe(validCreateData.limit)
+      const updateResult = card.updateData({ limit: -200 })
+
+      domainAssert.expectResultFailure(updateResult, [
+        new InvalidCurrencyError('limit', -200),
+      ])
+      domainAssert.assertEqual(card.limit, originalLimit)
     })
 
-    it('should fail if closingDay is outside range', () => {
-      const card = expectSuccess(createCard())
-      const resultUpdate = card.updateData({ closingDay: 32 })
+    it('should fail if closingDay is below range', () => {
+      const card = createCard().value
+      const originalClosingDay = card.closingDay
 
-      expectFailureWithMessage(
-        resultUpdate,
-        'The field "closingDay" must be between 1 and 31',
-      )
-      expect(card.closingDay).toBe(validCreateData.closingDay)
+      const updateResult = card.updateData({ closingDay: 0 })
+
+      domainAssert.expectResultFailure(updateResult, [
+        new NumberRangeError('closingDay', 1, 31, 0),
+      ])
+      domainAssert.assertEqual(card.closingDay, originalClosingDay)
     })
 
-    it('should fail if dueDay is outside range', () => {
-      const card = expectSuccess(createCard())
-      const resultUpdate = card.updateData({ dueDay: 0 })
+    it('should fail if closingDay is above range', () => {
+      const card = createCard().value
+      const originalClosingDay = card.closingDay
 
-      expectFailureWithMessage(
-        resultUpdate,
-        'The field "dueDay" must be between 1 and 31',
-      )
-      expect(card.dueDay).toBe(validCreateData.dueDay)
+      const updateResult = card.updateData({ closingDay: 32 })
+
+      domainAssert.expectResultFailure(updateResult, [
+        new NumberRangeError('closingDay', 1, 31, 32),
+      ])
+      domainAssert.assertEqual(card.closingDay, originalClosingDay)
+    })
+
+    it('should fail if dueDay is below range', () => {
+      const card = createCard().value
+      const originalDueDay = card.dueDay
+
+      const updateResult = card.updateData({ dueDay: 0 })
+
+      domainAssert.expectResultFailure(updateResult, [
+        new NumberRangeError('dueDay', 1, 31, 0),
+      ])
+      domainAssert.assertEqual(card.dueDay, originalDueDay)
+    })
+
+    it('should fail if dueDay is above range', () => {
+      const card = createCard().value
+      const originalDueDay = card.dueDay
+
+      const updateResult = card.updateData({ dueDay: 32 })
+
+      domainAssert.expectResultFailure(updateResult, [
+        new NumberRangeError('dueDay', 1, 31, 32),
+      ])
+      domainAssert.assertEqual(card.dueDay, originalDueDay)
     })
 
     it('should fail if accountId is not a valid UUID', () => {
-      const card = expectSuccess(createCard())
-      const resultUpdate = card.updateData({ accountId: 'not-a-valid-uuid' })
+      const card = createCard().value
+      const originalAccountId = card.accountId.value
 
-      expectFailureWithMessage(resultUpdate, 'must be a valid UUID')
-      expect(card.accountId.value).toBe(validCreateData.accountId)
+      const updateResult = card.updateData({ accountId: 'not-a-valid-uuid' })
+
+      domainAssert.expectResultFailure(updateResult, [
+        new InvalidUuidError('accountId', 'not-a-valid-uuid'),
+      ])
+      domainAssert.assertEqual(card.accountId.value, originalAccountId)
     })
   })
 
   describe('updateLimit()', () => {
     it('should update limit to valid value', () => {
-      const card = expectSuccess(createCard())
+      const createResult = createCard()
+      const card = domainAssert.expectResultSuccess(createResult)
       const initialLimit = card.limit
 
-      const resultLimit = card.updateLimit(5000)
+      const updateResult = card.updateLimit(5000)
+      domainAssert.expectResultSuccess(updateResult)
 
-      expect(resultLimit.isSuccess).toBe(true)
-      expect(card.limit).toBe(5000)
-      expect(card.limit).not.toBe(initialLimit)
+      domainAssert.assertEqual(card.limit, 5000)
+      domainAssert.assertNotEqual(card.limit, initialLimit)
     })
 
     it('should fail if new limit is negative', () => {
-      const card = expectSuccess(createCard())
-      const resultLimit = card.updateLimit(-500)
+      const card = createCard().value
+      const originalLimit = card.limit
 
-      expectFailureWithMessage(
-        resultLimit,
-        'The field "limit" must be a valid currency value.',
-      )
-      expect(card.limit).toBe(validCreateData.limit)
+      const updateResult = card.updateLimit(-500)
+
+      domainAssert.expectResultFailure(updateResult, [
+        new InvalidCurrencyError('limit', -500),
+      ])
+      domainAssert.assertEqual(card.limit, originalLimit)
     })
   })
 })

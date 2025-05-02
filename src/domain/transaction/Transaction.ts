@@ -174,7 +174,6 @@ export class Transaction extends Entity {
     const validator = new Validator()
 
     validator.check('date', input.date).required().isValidDate()
-    validator.check('type', input.type).required()
     validator.check('description', input.description).required().minLength(3)
     validator.check('categoryId', input.categoryId).required().isValidUuid()
     validator.check('amount', input.amount).required().isCurrency()

@@ -14,4 +14,12 @@ module.exports = {
   roots: ['<rootDir>'],
   modulePaths: ['<rootDir>'],
   testMatch: ['**/tests/**/*.spec.ts'],
+  collectCoverage: true,
+  coverageReporters: ['text', 'lcov'],
+  coverageDirectory: 'coverage',
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/index.ts',
+    '!tests/framework/**/*.ts',
+  ],
 }

@@ -1,4 +1,5 @@
 import { Entity, UniqueId } from '@domain/core'
+import { domainAssert } from '@tests/framework'
 
 class FakeEntity extends Entity {
   constructor(
@@ -20,37 +21,12 @@ class FakeEntity extends Entity {
 }
 
 describe('Entity', () => {
-  const createEntity = (
-    id?: string,
-    createdAt?: Date,
-    updatedAt?: Date,
-    deletedAt?: Date | null,
-  ) => new FakeEntity(id, createdAt, updatedAt, deletedAt)
-
-  const assertValidEntity = (entity: FakeEntity) => {
-    expect(entity.id).toBeInstanceOf(UniqueId)
-    expect(entity.createdAt).toBeInstanceOf(Date)
-    expect(entity.updatedAt).toBeInstanceOf(Date)
-  }
-
-  const assertEntityEquals = (
-    entity: FakeEntity,
-    other: FakeEntity,
-    expected: boolean,
-  ) => {
-    expect(entity.equals(other)).toBe(expected)
-  }
-
-  const assertDateGreaterThan = (date1: Date, date2: Date) => {
-    expect(date1.getTime()).toBeGreaterThan(date2.getTime())
-  }
-
   describe('constructor', () => {
     it('should create an Entity with a generated id if none is provided', () => {
-      const sut = createEntity()
+      const entity = new FakeEntity()
 
-      assertValidEntity(sut)
-      expect(sut.deletedAt).toBeNull()
+      domainAssert.expectValidEntity(entity)
+      domainAssert.assertEqual(entity.deletedAt, null)
     })
 
     it('should create an Entity with a given id and dates if provided', () => {
@@ -59,68 +35,77 @@ describe('Entity', () => {
       const updatedAt = new Date('2021-01-02')
       const deletedAt = new Date('2021-01-03')
 
-      const sut = createEntity(existingUuid, createdAt, updatedAt, deletedAt)
+      const entity = new FakeEntity(
+        existingUuid,
+        createdAt,
+        updatedAt,
+        deletedAt,
+      )
 
-      expect(sut.id.value).toBe(existingUuid)
-      expect(sut.createdAt).toBe(createdAt)
-      expect(sut.updatedAt).toBe(updatedAt)
-      expect(sut.deletedAt).toBe(deletedAt)
+      domainAssert.expectUniqueIdEquals(entity.id, existingUuid)
+      domainAssert.assertEqual(entity.createdAt, createdAt)
+      domainAssert.assertEqual(entity.updatedAt, updatedAt)
+      domainAssert.assertEqual(entity.deletedAt, deletedAt)
     })
   })
 
   describe('equals()', () => {
     it('should return true if same instance', () => {
-      const sut = createEntity()
-      assertEntityEquals(sut, sut, true)
+      const entity = new FakeEntity()
+
+      domainAssert.assertTrue(entity.equals(entity))
     })
 
     it('should return true if same id but different instances', () => {
       const id = UniqueId.create().value
-      const sut = createEntity(id)
-      const other = createEntity(id)
+      const entity1 = new FakeEntity(id)
+      const entity2 = new FakeEntity(id)
 
-      assertEntityEquals(sut, other, true)
+      domainAssert.assertTrue(entity1.equals(entity2))
     })
 
     it('should return false if different ids', () => {
-      const sut = createEntity(UniqueId.create().value)
-      const other = createEntity(UniqueId.create().value)
+      const entity1 = new FakeEntity(UniqueId.create().value)
+      const entity2 = new FakeEntity(UniqueId.create().value)
 
-      assertEntityEquals(sut, other, false)
+      domainAssert.assertFalse(entity1.equals(entity2))
     })
 
     it('should return false if other is null or undefined', () => {
-      const sut = createEntity()
+      const entity = new FakeEntity()
 
-      expect(sut.equals(null as any)).toBe(false)
-      expect(sut.equals(undefined)).toBe(false)
+      domainAssert.assertFalse(entity.equals(null as any))
+      domainAssert.assertFalse(entity.equals(undefined))
     })
   })
 
   describe('markAsDeleted()', () => {
     it('should set deletedAt to current date when called', () => {
-      const sut = createEntity()
+      const entity = new FakeEntity()
 
-      expect(sut.deletedAt).toBeNull()
+      domainAssert.assertEqual(entity.deletedAt, null)
 
-      sut.delete()
+      entity.delete()
 
-      expect(sut.deletedAt).toBeInstanceOf(Date)
+      domainAssert.assertTrue(entity.deletedAt instanceof Date)
     })
   })
 
   describe('updateTimestamp()', () => {
     it('should update the updatedAt field to a new date/time', async () => {
       const initialDate = new Date('2025-01-01T12:00:00Z')
-      const sut = createEntity(undefined, initialDate, initialDate, null)
+      const entity = new FakeEntity(undefined, initialDate, initialDate, null)
 
-      const oldUpdatedAt = sut.updatedAt
+      const oldUpdatedAt = entity.updatedAt
 
       await new Promise((resolve) => setTimeout(resolve, 10))
 
-      sut.update()
+      entity.update()
 
-      assertDateGreaterThan(sut.updatedAt, oldUpdatedAt)
+      domainAssert.assertTrue(
+        entity.updatedAt.getTime() > oldUpdatedAt.getTime(),
+        'Expected updatedAt to be greater than previous value',
+      )
     })
   })
 })

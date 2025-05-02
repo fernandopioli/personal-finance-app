@@ -68,7 +68,6 @@ export class Account extends Entity {
     const validator = new Validator()
     validator.check('bankId', input.bankId).required().isValidUuid()
     validator.check('name', input.name).required().minLength(3)
-    validator.check('type', input.type).required()
 
     if (input.agency) {
       validator.check('agency', input.agency).maxLength(10)

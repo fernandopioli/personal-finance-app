@@ -1,55 +1,59 @@
-import { Money, Result } from '@domain/core'
-import { expectSuccess, expectFailureWithMessage } from '@tests/utils'
+import { Money } from '@domain/core'
+import {
+  IncompatibleCurrencyError,
+  InvalidMoneyValueError,
+} from '@domain/errors'
+import { domainAssert } from '@tests/framework'
 
 describe('Money Value Object', () => {
   describe('create()', () => {
     it('should create a valid Money with amount and default currency', () => {
-      const money = expectSuccess(Money.create(100.5))
+      const result = Money.create(100.5)
+      const money = domainAssert.expectResultSuccess(result)
 
-      expect(money.amount).toBe(100.5)
-      expect(money.currency).toBe('BRL')
+      domainAssert.expectMoneyEquals(money, 100.5, 'BRL')
     })
 
     it('should create a valid Money with custom currency', () => {
-      const money = expectSuccess(Money.create(100.5, 'USD'))
+      const result = Money.create(100.5, 'USD')
+      const money = domainAssert.expectResultSuccess(result)
 
-      expect(money.amount).toBe(100.5)
-      expect(money.currency).toBe('USD')
+      domainAssert.expectMoneyEquals(money, 100.5, 'USD')
+    })
+
+    it('should normalize lowercase currency to uppercase', () => {
+      const result = Money.create(100.5, 'usd')
+      const money = domainAssert.expectResultSuccess(result)
+
+      domainAssert.expectMoneyEquals(money, 100.5, 'USD')
     })
 
     it('should fail if amount has more than 2 decimal places', () => {
       const result = Money.create(100.505)
 
-      expectFailureWithMessage(
-        result,
-        'must be a valid monetary value with up to 2 decimal places',
-      )
+      domainAssert.expectResultFailure(result, [
+        new InvalidMoneyValueError('amount', 100.505),
+      ])
     })
 
     it('should fail if amount is not a number', () => {
       const result = Money.create(NaN)
 
-      expectFailureWithMessage(result, 'must be a valid monetary value')
+      domainAssert.expectResultFailure(result, [
+        new InvalidMoneyValueError('amount', NaN),
+      ])
     })
 
-    it('should fail if currency is not 3 uppercase letters', () => {
-      const resultLowercase = Money.create(100, 'usd')
-      expectFailureWithMessage(
-        resultLowercase,
-        'must be a valid ISO 4217 currency code',
-      )
-
+    it('should fail if currency is not 3 letters', () => {
       const resultTooLong = Money.create(100, 'USDD')
-      expectFailureWithMessage(
-        resultTooLong,
-        'must be a valid ISO 4217 currency code',
-      )
+      domainAssert.expectResultFailure(resultTooLong, [
+        new InvalidMoneyValueError('currency', 'USDD'),
+      ])
 
       const resultTooShort = Money.create(100, 'US')
-      expectFailureWithMessage(
-        resultTooShort,
-        'must be a valid ISO 4217 currency code',
-      )
+      domainAssert.expectResultFailure(resultTooShort, [
+        new InvalidMoneyValueError('currency', 'US'),
+      ])
     })
   })
 
@@ -57,157 +61,148 @@ describe('Money Value Object', () => {
     it('should create a zero money value with default currency', () => {
       const money = Money.zero()
 
-      expect(money.amount).toBe(0)
-      expect(money.currency).toBe('BRL')
+      domainAssert.expectMoneyEquals(money, 0, 'BRL')
     })
   })
 
   describe('add()', () => {
     it('should add two money values with same currency', () => {
-      const money1 = expectSuccess(Money.create(100))
-      const money2 = expectSuccess(Money.create(200))
+      const money1 = domainAssert.expectResultSuccess(Money.create(100))
+      const money2 = domainAssert.expectResultSuccess(Money.create(200))
 
       const result = money1.add(money2)
-      const sum = expectSuccess(result)
+      const sum = domainAssert.expectResultSuccess(result)
 
-      expect(sum.amount).toBe(300)
-      expect(sum.currency).toBe('BRL')
+      domainAssert.expectMoneyEquals(sum, 300, 'BRL')
     })
 
     it('should fail when adding different currencies', () => {
-      const money1 = expectSuccess(Money.create(100, 'USD'))
-      const money2 = expectSuccess(Money.create(200, 'EUR'))
+      const money1 = domainAssert.expectResultSuccess(Money.create(100, 'USD'))
+      const money2 = domainAssert.expectResultSuccess(Money.create(200, 'EUR'))
 
       const result = money1.add(money2)
 
-      expectFailureWithMessage(
-        result,
-        'Cannot add money with different currencies: USD and EUR',
-      )
+      domainAssert.expectResultFailure(result, [
+        new IncompatibleCurrencyError('add', 'USD', 'EUR'),
+      ])
     })
 
     it('should preserve decimal places when adding', () => {
-      const money1 = expectSuccess(Money.create(100.25))
-      const money2 = expectSuccess(Money.create(200.3))
+      const money1 = domainAssert.expectResultSuccess(Money.create(100.25))
+      const money2 = domainAssert.expectResultSuccess(Money.create(200.3))
 
       const result = money1.add(money2)
-      const sum = expectSuccess(result)
+      const sum = domainAssert.expectResultSuccess(result)
 
-      expect(sum.amount).toBe(300.55)
+      domainAssert.expectMoneyEquals(sum, 300.55, 'BRL')
     })
   })
 
   describe('subtract()', () => {
     it('should subtract two money values with same currency', () => {
-      const money1 = expectSuccess(Money.create(300))
-      const money2 = expectSuccess(Money.create(100))
+      const money1 = domainAssert.expectResultSuccess(Money.create(300))
+      const money2 = domainAssert.expectResultSuccess(Money.create(100))
 
       const result = money1.subtract(money2)
-      const difference = expectSuccess(result)
+      const difference = domainAssert.expectResultSuccess(result)
 
-      expect(difference.amount).toBe(200)
-      expect(difference.currency).toBe('BRL')
+      domainAssert.expectMoneyEquals(difference, 200, 'BRL')
     })
 
     it('should allow negative results from subtraction', () => {
-      const money1 = expectSuccess(Money.create(100))
-      const money2 = expectSuccess(Money.create(300))
+      const money1 = domainAssert.expectResultSuccess(Money.create(100))
+      const money2 = domainAssert.expectResultSuccess(Money.create(300))
 
       const result = money1.subtract(money2)
-      const difference = expectSuccess(result)
+      const difference = domainAssert.expectResultSuccess(result)
 
-      expect(difference.amount).toBe(-200)
+      domainAssert.expectMoneyEquals(difference, -200, 'BRL')
     })
 
     it('should fail when subtracting different currencies', () => {
-      const money1 = expectSuccess(Money.create(100, 'USD'))
-      const money2 = expectSuccess(Money.create(200, 'EUR'))
+      const money1 = domainAssert.expectResultSuccess(Money.create(100, 'USD'))
+      const money2 = domainAssert.expectResultSuccess(Money.create(200, 'EUR'))
 
       const result = money1.subtract(money2)
 
-      expectFailureWithMessage(
-        result,
-        'Cannot subtract money with different currencies: USD and EUR',
-      )
+      domainAssert.expectResultFailure(result, [
+        new IncompatibleCurrencyError('subtract', 'USD', 'EUR'),
+      ])
     })
   })
 
   describe('multiply()', () => {
     it('should multiply money by a factor', () => {
-      const money = expectSuccess(Money.create(100))
+      const money = domainAssert.expectResultSuccess(Money.create(100))
 
       const result = money.multiply(2.5)
-      const product = expectSuccess(result)
+      const product = domainAssert.expectResultSuccess(result)
 
-      expect(product.amount).toBe(250)
+      domainAssert.expectMoneyEquals(product, 250, 'BRL')
     })
 
     it('should handle multiplication by zero', () => {
-      const money = expectSuccess(Money.create(100))
+      const money = domainAssert.expectResultSuccess(Money.create(100))
 
       const result = money.multiply(0)
-      const product = expectSuccess(result)
+      const product = domainAssert.expectResultSuccess(result)
 
-      expect(product.amount).toBe(0)
+      domainAssert.expectMoneyEquals(product, 0, 'BRL')
     })
 
     it('should handle multiplication by negative numbers', () => {
-      const money = expectSuccess(Money.create(100))
+      const money = domainAssert.expectResultSuccess(Money.create(100))
 
       const result = money.multiply(-1)
-      const product = expectSuccess(result)
+      const product = domainAssert.expectResultSuccess(result)
 
-      expect(product.amount).toBe(-100)
+      domainAssert.expectMoneyEquals(product, -100, 'BRL')
     })
 
     it('should preserve decimal precision', () => {
-      const money = expectSuccess(Money.create(10))
+      const money = domainAssert.expectResultSuccess(Money.create(10))
 
       const result = money.multiply(0.33)
-      const product = expectSuccess(result)
+      const product = domainAssert.expectResultSuccess(result)
 
-      expect(product.amount).toBeCloseTo(3.3, 2)
+      domainAssert.assertTrue(
+        Math.abs(product.amount - 3.3) < 0.00001,
+        'Expected value to be approximately 3.3',
+      )
     })
   })
 
   describe('format()', () => {
     it('should format BRL correctly', () => {
-      const money = expectSuccess(Money.create(1234.56))
+      const money = domainAssert.expectResultSuccess(Money.create(1234.56))
       const formatted = money.format()
 
-      expect(formatted).toContain('R$')
-      expect(formatted).toContain('1.234,56')
+      domainAssert.assertTrue(formatted.includes('R$'))
+      domainAssert.assertTrue(formatted.includes('1.234,56'))
     })
 
     it('should format USD correctly', () => {
-      const money = expectSuccess(Money.create(1234.56, 'USD'))
+      const money = domainAssert.expectResultSuccess(
+        Money.create(1234.56, 'USD'),
+      )
       const formatted = money.format()
 
-      expect(formatted).toContain('US$')
-      expect(formatted).toContain('1.234,56')
+      domainAssert.assertTrue(formatted.includes('US$'))
+      domainAssert.assertTrue(formatted.includes('1.234,56'))
     })
   })
 
   describe('equality', () => {
     it('should consider equal money with same amount and currency', () => {
-      const money1 = expectSuccess(Money.create(100))
-      const money2 = expectSuccess(Money.create(100))
+      const money1 = domainAssert.expectResultSuccess(Money.create(100))
+      const money2 = domainAssert.expectResultSuccess(Money.create(100))
+      const money3 = domainAssert.expectResultSuccess(Money.create(200))
+      const money4 = domainAssert.expectResultSuccess(Money.create(100, 'USD'))
 
-      expect(money1.equals(money2)).toBe(true)
-    })
-
-    it('should consider different money with different amount', () => {
-      const money1 = expectSuccess(Money.create(100))
-      const money2 = expectSuccess(Money.create(200))
-
-      expect(money1.equals(money2)).toBe(false)
-    })
-
-    it('should consider different money with different currency', () => {
-      const money1 = expectSuccess(Money.create(100, 'USD'))
-      const money2 = expectSuccess(Money.create(100, 'EUR'))
-
-      expect(money1.equals(money2)).toBe(false)
+      domainAssert.assertTrue(money1.equals(money2))
+      domainAssert.expectMoneysEqual(money1, money2)
+      domainAssert.assertFalse(money1.equals(money3))
+      domainAssert.assertFalse(money1.equals(money4))
     })
   })
 })

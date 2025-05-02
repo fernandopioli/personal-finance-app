@@ -1,30 +1,63 @@
 import { UniqueId } from '@domain/core'
-import { validate as uuidValidate } from 'uuid'
+import { domainAssert } from '@tests/framework'
 
 describe('UniqueId', () => {
-  const createId = (id?: string) => UniqueId.create(id)
-  const assertValidUuid = (id: UniqueId) =>
-    expect(uuidValidate(id.value)).toBe(true)
-  const assertIdEquals = (id: UniqueId, value: string) =>
-    expect(id.value).toBe(value)
-  const assertThrows = (fn: () => void, message: string) =>
-    expect(fn).toThrow(message)
-
   describe('create()', () => {
     it('should create a valid UniqueId when called without argument', () => {
-      const sut = createId()
-      assertValidUuid(sut)
+      const id = UniqueId.create()
+
+      domainAssert.expectValidValueObject(id)
+      domainAssert.expectValidUniqueId(id)
     })
 
     it('should create UniqueId with given valid UUID', () => {
       const existingUuid = '123e4567-e89b-42d3-a456-556642440000'
-      const sut = createId(existingUuid)
-      assertIdEquals(sut, existingUuid)
+      const id = UniqueId.create(existingUuid)
+
+      domainAssert.expectUniqueIdEquals(id, existingUuid)
     })
 
     it('should throw error if given invalid UUID', () => {
       const invalidId = 'not-a-valid-uuid'
-      assertThrows(() => createId(invalidId), 'Invalid UUID')
+
+      domainAssert.expectThrows(
+        () => UniqueId.create(invalidId),
+        'Invalid UUID',
+      )
+    })
+  })
+
+  describe('isValid()', () => {
+    it('should return true for valid UUIDs', () => {
+      const validUuid = '123e4567-e89b-42d3-a456-556642440000'
+
+      domainAssert.assertTrue(UniqueId.isValid(validUuid))
+    })
+
+    it('should return false for invalid UUIDs', () => {
+      const invalidValues = [
+        'not-a-uuid',
+        '123',
+        '123e4567-e89b-XXXX-a456-556642440000',
+        null,
+        undefined,
+      ]
+
+      invalidValues.forEach((value) => {
+        domainAssert.assertFalse(
+          UniqueId.isValid(value as any),
+          `Expected ${value} to be invalid`,
+        )
+      })
+    })
+  })
+
+  describe('toString()', () => {
+    it('should return the string representation of the UUID', () => {
+      const uuidString = '123e4567-e89b-42d3-a456-556642440000'
+      const id = UniqueId.create(uuidString)
+
+      domainAssert.assertEqual(id.value, uuidString)
     })
   })
 })

@@ -1,6 +1,11 @@
 import { Bank } from '@domain/bank'
-import { Result } from '@domain/core'
-import { expectFailureWithMessage } from '@tests/utils'
+import {
+  MinLengthError,
+  RequiredFieldError,
+  MaxLengthError,
+  ValidationError,
+} from '@domain/errors'
+import { domainAssert } from '@tests/framework'
 
 describe('Bank Entity', () => {
   const validBankData = {
@@ -16,46 +21,40 @@ describe('Bank Entity', () => {
     return Bank.load({ ...validBankData, ...overrides })
   }
 
-  it('should load a valid Bank with name >= 3 and code 3-length', () => {
-    const result = createBank()
+  describe('load()', () => {
+    it('should load a valid Bank with name >= 3 and code 3-length', () => {
+      const result = createBank()
+      const bank = domainAssert.expectResultSuccess(result)
 
-    expect(result).toBeInstanceOf(Result)
-    expect(result.isSuccess).toBe(true)
+      domainAssert.expectValidEntity(bank)
+      domainAssert.assertEqual(bank.name, validBankData.name)
+      domainAssert.assertEqual(bank.code, validBankData.code)
+      domainAssert.expectUniqueIdEquals(bank.id, validBankData.id)
+    })
 
-    const bank = result.value
-    expect(bank.id.value).toBe(validBankData.id)
-    expect(bank.name).toBe(validBankData.name)
-    expect(bank.code).toBe(validBankData.code)
-    expect(bank.createdAt).toBeInstanceOf(Date)
-    expect(bank.updatedAt).toBeInstanceOf(Date)
-    expect(bank.deletedAt).toBeNull()
-  })
+    it('should fail if name is empty or < 3 chars', () => {
+      let result = createBank({ name: '' })
+      domainAssert.expectResultFailure(result, [new RequiredFieldError('name')])
 
-  it('should fail if nome is empty or < 3 chars', () => {
-    let result = createBank({ name: '' })
-    expectFailureWithMessage(result, 'The field "name" is required.')
+      result = createBank({ name: 'Ab' })
+      domainAssert.expectResultFailure(result, [
+        new MinLengthError('name', 3, 2),
+      ])
+    })
 
-    result = createBank({ name: 'Ab' })
-    expectFailureWithMessage(
-      result,
-      'The field "name" must be at least 3 characters. Current length: 2',
-    )
-  })
+    it('should fail if code is empty or not exactly 3 chars', () => {
+      let result = createBank({ code: '' })
+      domainAssert.expectResultFailure(result, [new RequiredFieldError('code')])
 
-  it('should fail if codigo is empty or not exactly 3 chars', () => {
-    let result = createBank({ code: '' })
-    expectFailureWithMessage(result, 'The field "code" is required.')
+      result = createBank({ code: '12' })
+      domainAssert.expectResultFailure(result, [
+        new MinLengthError('code', 3, 2),
+      ])
 
-    result = createBank({ code: '12' })
-    expectFailureWithMessage(
-      result,
-      'The field "code" must be at least 3 characters. Current length: 2',
-    )
-
-    result = createBank({ code: '1234' })
-    expectFailureWithMessage(
-      result,
-      'The field "code" must be at most 3 characters. Current length: 4',
-    )
+      result = createBank({ code: '1234' })
+      domainAssert.expectResultFailure(result, [
+        new MaxLengthError('code', 3, 4),
+      ])
+    })
   })
 })

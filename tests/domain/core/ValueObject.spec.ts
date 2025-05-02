@@ -1,4 +1,5 @@
 import { ValueObject } from '@domain/core'
+import { domainAssert } from '@tests/framework'
 
 class FakeValueObject extends ValueObject<object> {
   constructor(value: object) {
@@ -13,109 +14,89 @@ class FakeValueString extends ValueObject<string> {
 }
 
 describe('ValueObject', () => {
-  const createStringVO = (value: string = 'some-string') =>
-    new FakeValueString(value)
-  const createObjectVO = (value: object = { foo: 'bar' }) =>
-    new FakeValueObject(value)
-
-  const testImmutability = <T>(
-    create: () => ValueObject<T>,
-    mutate: (vo: ValueObject<T>) => void,
-    originalValue: any,
-    property?: string,
-  ) => {
-    const sut = create()
-
-    try {
-      mutate(sut)
-    } catch (err) {}
-
-    if (property) {
-      if (property.includes('.')) {
-        const parts = property.split('.')
-        let value: any = sut.value
-        for (const part of parts) {
-          value = value[part]
-        }
-        expect(value).toBe(originalValue)
-      } else {
-        expect((sut.value as any)[property]).toBe(originalValue)
-      }
-    } else {
-      expect(sut.value).toBe(originalValue)
-    }
-  }
-
   describe('Creation', () => {
     it('should create a ValueObject with the given value', () => {
       const inputValue = 'some-string'
-      const sut = createStringVO(inputValue)
-      expect(sut.value).toBe(inputValue)
+      const valueObject = new FakeValueString(inputValue)
+
+      domainAssert.assertEqual(valueObject.value, inputValue)
     })
 
     it('should store string values as effectively immutable', () => {
-      testImmutability(
-        () => createStringVO('some-string'),
-        (vo) => {
-          ;(vo.value as any) = 'edited'
-        },
-        'some-string',
-      )
+      const originalValue = 'some-string'
+      const valueObject = new FakeValueString(originalValue)
+
+      try {
+        ;(valueObject.value as any) = 'edited'
+      } catch (err) {}
+
+      domainAssert.assertEqual(valueObject.value, originalValue)
     })
 
     it('should store object values as effectively immutable', () => {
-      testImmutability(
-        () => createObjectVO({ foo: 'bar' }),
-        (vo) => {
-          ;(vo.value as any).foo = 'edited'
-        },
-        'bar',
-        'foo',
-      )
+      const originalObj = { foo: 'bar' }
+      const valueObject = new FakeValueObject(originalObj)
+
+      try {
+        ;(valueObject.value as any).foo = 'edited'
+      } catch (err) {}
+
+      domainAssert.assertEqual((valueObject.value as any).foo, 'bar')
     })
 
     it('should store nested object values as effectively immutable', () => {
-      testImmutability(
-        () => createObjectVO({ foo: { bar: 'baz' } }),
-        (vo) => {
-          ;(vo.value as any).foo.bar = 'edited'
-        },
-        'baz',
-        'foo.bar',
-      )
+      const originalObj = { foo: { bar: 'baz' } }
+      const valueObject = new FakeValueObject(originalObj)
+
+      try {
+        ;(valueObject.value as any).foo.bar = 'edited'
+      } catch (err) {}
+
+      domainAssert.assertEqual((valueObject.value as any).foo.bar, 'baz')
     })
   })
 
   describe('equals()', () => {
-    const testEquality = <T>(
-      first: ValueObject<T>,
-      second: ValueObject<T> | null | undefined,
-      expectedResult: boolean,
-    ) => {
-      expect(first.equals(second as any)).toBe(expectedResult)
-    }
-
     it('should return true if called with the same instance', () => {
-      const sut = createStringVO('test')
-      testEquality(sut, sut, true)
+      const valueObject = new FakeValueString('test')
+
+      domainAssert.assertTrue(valueObject.equals(valueObject))
     })
 
     it('should return true if both instances have the same value', () => {
-      const sut = createObjectVO({ foo: 'bar' })
-      const other = createObjectVO({ foo: 'bar' })
-      testEquality(sut, other, true)
+      const vo1 = new FakeValueObject({ foo: 'bar' })
+      const vo2 = new FakeValueObject({ foo: 'bar' })
+
+      domainAssert.assertTrue(vo1.equals(vo2))
     })
 
     it('should return false if different values', () => {
-      const sut = createStringVO('abc')
-      const other = createStringVO('xyz')
-      testEquality(sut, other, false)
+      const vo1 = new FakeValueString('abc')
+      const vo2 = new FakeValueString('xyz')
+
+      domainAssert.assertFalse(vo1.equals(vo2))
     })
 
     it('should return false if other is null or undefined', () => {
-      const sut = createStringVO('abc')
-      testEquality(sut, null, false)
-      testEquality(sut, undefined, false)
+      const valueObject = new FakeValueString('abc')
+
+      domainAssert.assertFalse(valueObject.equals(null as any))
+      domainAssert.assertFalse(valueObject.equals(undefined as any))
+    })
+
+    it('should correctly compare value objects using JSON.stringify', () => {
+      const vo1 = new FakeValueObject({ foo: 'bar', baz: 123 })
+      const vo2 = new FakeValueObject({ foo: 'bar', baz: 123 })
+      const vo3 = new FakeValueObject({ foo: 'different', baz: 456 })
+
+      domainAssert.assertEqual(
+        JSON.stringify(vo1.value),
+        JSON.stringify(vo2.value),
+        'Value objects com os mesmos valores devem ser iguais via JSON.stringify',
+      )
+
+      domainAssert.assertTrue(vo1.equals(vo2))
+      domainAssert.assertFalse(vo1.equals(vo3))
     })
   })
 })

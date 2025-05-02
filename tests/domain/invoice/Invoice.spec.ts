@@ -1,14 +1,19 @@
-import { Invoice } from '@domain/invoice'
 import {
+  Invoice,
   InvoiceCreateInput,
   InvoiceLoadInput,
   InvoiceUpdateInput,
-} from '@domain/invoice/InvoiceTypes'
+} from '@domain/invoice'
+import { InvalidInvoiceStatusError } from '@domain/invoice/errors'
 import {
-  expectSuccess,
-  expectFailureWithMessage,
-  expectFieldErrors,
-} from '@tests/utils'
+  RequiredFieldError,
+  InvalidUuidError,
+  InvalidCurrencyError,
+  InvalidDateError,
+  InvalidDateRangeError,
+} from '@domain/errors'
+import { domainAssert } from '@tests/framework'
+
 describe('Invoice Entity', () => {
   const validCreateData: InvoiceCreateInput = {
     cardId: '123e4567-e89b-42d3-a456-556642440000',
@@ -40,26 +45,30 @@ describe('Invoice Entity', () => {
 
   describe('create()', () => {
     it('should create a valid invoice', () => {
-      const invoice = expectSuccess(createInvoice())
+      const result = createInvoice()
+      const invoice = domainAssert.expectResultSuccess(result)
 
-      expect(invoice.cardId.value).toBe(validCreateData.cardId)
-      expect(invoice.dueDate).toEqual(validCreateData.dueDate)
-      expect(invoice.startDate).toEqual(validCreateData.startDate)
-      expect(invoice.endDate).toEqual(validCreateData.endDate)
-      expect(invoice.totalAmount).toBe(validCreateData.totalAmount)
-      expect(invoice.status.value).toBe(validCreateData.status)
+      domainAssert.expectValidEntity(invoice)
+      domainAssert.expectUniqueIdEquals(invoice.cardId, validCreateData.cardId)
+      domainAssert.assertEqual(invoice.dueDate, validCreateData.dueDate)
+      domainAssert.assertEqual(invoice.startDate, validCreateData.startDate)
+      domainAssert.assertEqual(invoice.endDate, validCreateData.endDate)
+      domainAssert.assertEqual(invoice.totalAmount, validCreateData.totalAmount)
+      domainAssert.expectValidValueObject(
+        invoice.status,
+        validCreateData.status,
+      )
     })
 
     it('should set default values when not provided', () => {
-      const invoice = expectSuccess(
-        createInvoice({
-          totalAmount: undefined,
-          status: undefined,
-        }),
-      )
+      const result = createInvoice({
+        totalAmount: undefined,
+        status: undefined,
+      })
+      const invoice = domainAssert.expectResultSuccess(result)
 
-      expect(invoice.totalAmount).toBe(0)
-      expect(invoice.status.value).toBe('open')
+      domainAssert.assertEqual(invoice.totalAmount, 0)
+      domainAssert.expectValidValueObject(invoice.status, 'open')
     })
 
     it('should validate required fields', () => {
@@ -70,23 +79,28 @@ describe('Invoice Entity', () => {
         endDate: undefined,
       })
 
-      expect(result.isFailure).toBe(true)
-      expectFieldErrors(result, ['cardId', 'dueDate', 'startDate', 'endDate'])
+      domainAssert.expectResultFailure(result, [
+        new RequiredFieldError('cardId'),
+        new RequiredFieldError('dueDate'),
+        new RequiredFieldError('startDate'),
+        new RequiredFieldError('endDate'),
+      ])
     })
 
     it('should validate cardId is a valid UUID', () => {
       const result = createInvoice({ cardId: 'invalid-uuid' })
 
-      expectFailureWithMessage(result, 'must be a valid UUID', 1)
+      domainAssert.expectResultFailure(result, [
+        new InvalidUuidError('cardId', 'invalid-uuid'),
+      ])
     })
 
     it('should validate that totalAmount is non-negative', () => {
       const result = createInvoice({ totalAmount: -100 })
 
-      expectFailureWithMessage(
-        result,
-        'The field "totalAmount" must be a valid currency value.',
-      )
+      domainAssert.expectResultFailure(result, [
+        new InvalidCurrencyError('totalAmount', -100),
+      ])
     })
 
     it('should validate invoice status is valid', () => {
@@ -94,21 +108,32 @@ describe('Invoice Entity', () => {
         status: 'invalid-status',
       })
 
-      expectFailureWithMessage(result, 'must be "open", "closed" or "paid"', 1)
+      domainAssert.expectResultFailure(result, [
+        new InvalidInvoiceStatusError('status', 'invalid-status'),
+      ])
     })
 
     it('should validate dueDate, startDate and endDate are valid dates', () => {
+      const invalidDate = new Date('invalid-date')
       const result = createInvoice({
-        dueDate: new Date('invalid-date'),
-        startDate: new Date('invalid-date'),
-        endDate: new Date('invalid-date'),
+        dueDate: invalidDate,
+        startDate: invalidDate,
+        endDate: invalidDate,
       })
 
-      expect(result.isFailure).toBe(true)
-      expectFieldErrors(result, ['dueDate', 'startDate', 'endDate'])
+      domainAssert.expectResultFailure(result)
+      domainAssert.expectFieldErrors(result, [
+        'dueDate',
+        'startDate',
+        'endDate',
+      ])
 
-      result.errors.forEach((error) => {
-        expect(error.message).toContain('must be a valid date')
+      const errors = domainAssert.expectResultFailure(result)
+      errors.forEach((error) => {
+        domainAssert.assertTrue(
+          error instanceof InvalidDateError,
+          'Error should be an instance of InvalidDateError',
+        )
       })
     })
 
@@ -118,81 +143,94 @@ describe('Invoice Entity', () => {
         endDate: new Date('2023-05-14'),
       })
 
-      expectFailureWithMessage(result, 'must be after startDate', 1)
+      domainAssert.expectResultFailure(result, [
+        new InvalidDateRangeError('endDate', 'startDate'),
+      ])
     })
   })
 
   describe('load()', () => {
     it('should load a valid invoice', () => {
-      const invoice = expectSuccess(loadInvoice())
+      const result = loadInvoice()
+      const invoice = domainAssert.expectResultSuccess(result)
 
-      expect(invoice.id.value).toBe(validLoadData.id)
-      expect(invoice.cardId.value).toBe(validLoadData.cardId)
-      expect(invoice.dueDate).toEqual(validLoadData.dueDate)
-      expect(invoice.startDate).toEqual(validLoadData.startDate)
-      expect(invoice.endDate).toEqual(validLoadData.endDate)
-      expect(invoice.totalAmount).toBe(validLoadData.totalAmount)
-      expect(invoice.status.value).toBe(validLoadData.status)
-      expect(invoice.createdAt).toEqual(validLoadData.createdAt)
-      expect(invoice.updatedAt).toEqual(validLoadData.updatedAt)
-      expect(invoice.deletedAt).toEqual(validLoadData.deletedAt)
+      domainAssert.expectValidEntity(invoice, validLoadData.id)
+      domainAssert.expectUniqueIdEquals(invoice.cardId, validLoadData.cardId)
+      domainAssert.assertEqual(invoice.dueDate, validLoadData.dueDate)
+      domainAssert.assertEqual(invoice.startDate, validLoadData.startDate)
+      domainAssert.assertEqual(invoice.endDate, validLoadData.endDate)
+      domainAssert.assertEqual(invoice.totalAmount, validLoadData.totalAmount)
+      domainAssert.expectValidValueObject(invoice.status, validLoadData.status)
     })
   })
 
   describe('update methods', () => {
     describe('updateStatus()', () => {
       it('should update invoice status', () => {
-        const invoice = expectSuccess(createInvoice())
-        const result = invoice.updateStatus('closed')
+        const invoiceResult = createInvoice()
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
 
-        expect(result.isSuccess).toBe(true)
-        expect(invoice.status.value).toBe('closed')
+        const result = invoice.updateStatus('closed')
+        domainAssert.expectResultSuccess(result)
+        domainAssert.expectValidValueObject(invoice.status, 'closed')
       })
 
       it('should validate new status', () => {
-        const invoice = expectSuccess(createInvoice())
-        const result = invoice.updateStatus('invalid-status')
+        const invoiceResult = createInvoice()
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
 
-        expect(result.isFailure).toBe(true)
-        expect(result.errors[0].message).toContain(
-          'must be "open", "closed" or "paid"',
-        )
-        expect(invoice.status.value).toBe('open')
+        const result = invoice.updateStatus('invalid-status')
+        domainAssert.expectResultFailure(result, [
+          new InvalidInvoiceStatusError('status', 'invalid-status'),
+        ])
+        domainAssert.expectValidValueObject(invoice.status, 'open')
       })
     })
 
     describe('updateTotalAmount()', () => {
       it('should update invoice total amount', () => {
-        const invoice = expectSuccess(createInvoice())
-        const result = invoice.updateTotalAmount(2000.0)
+        const invoiceResult = createInvoice()
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
 
-        expect(result.isSuccess).toBe(true)
-        expect(invoice.totalAmount).toBe(2000.0)
+        const result = invoice.updateTotalAmount(2000.0)
+        domainAssert.expectResultSuccess(result)
+        domainAssert.assertEqual(invoice.totalAmount, 2000.0)
       })
 
       it('should validate new amount is required', () => {
-        const invoice = expectSuccess(createInvoice())
-        const result = invoice.updateTotalAmount(undefined as any)
+        const invoiceResult = createInvoice()
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
 
-        expectFailureWithMessage(result, 'is required')
-        expect(invoice.totalAmount).toBe(validCreateData.totalAmount)
+        const result = invoice.updateTotalAmount(undefined as any)
+        domainAssert.expectResultFailure(result, [
+          new RequiredFieldError('totalAmount'),
+        ])
+        domainAssert.assertEqual(
+          invoice.totalAmount,
+          validCreateData.totalAmount,
+        )
       })
 
       it('should validate new amount is a valid currency', () => {
-        const invoice = expectSuccess(createInvoice())
-        const result = invoice.updateTotalAmount(-100)
+        const invoiceResult = createInvoice()
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
 
-        expectFailureWithMessage(
-          result,
-          'The field "totalAmount" must be a valid currency value.',
+        const result = invoice.updateTotalAmount(-100)
+        domainAssert.expectResultFailure(result, [
+          new InvalidCurrencyError('totalAmount', -100),
+        ])
+        domainAssert.assertEqual(
+          invoice.totalAmount,
+          validCreateData.totalAmount,
         )
-        expect(invoice.totalAmount).toBe(validCreateData.totalAmount)
       })
     })
 
     describe('updateData()', () => {
       it('should update multiple invoice fields', () => {
-        const invoice = expectSuccess(createInvoice())
+        const invoiceResult = createInvoice()
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
+
         const updateData: InvoiceUpdateInput = {
           dueDate: new Date('2023-05-20'),
           startDate: new Date('2023-04-20'),
@@ -202,121 +240,142 @@ describe('Invoice Entity', () => {
         }
 
         const result = invoice.updateData(updateData)
+        domainAssert.expectResultSuccess(result)
 
-        expect(result.isSuccess).toBe(true)
-        expect(invoice.dueDate).toEqual(updateData.dueDate)
-        expect(invoice.startDate).toEqual(updateData.startDate)
-        expect(invoice.endDate).toEqual(updateData.endDate)
-        expect(invoice.totalAmount).toBe(updateData.totalAmount)
-        expect(invoice.status.value).toBe(updateData.status)
-      })
-
-      it('should validate dueDate, startDate and endDate are valid dates', () => {
-        const invoice = expectSuccess(createInvoice())
-        const updateData: InvoiceUpdateInput = {
-          dueDate: new Date('invalid-date'),
-          startDate: new Date('invalid-date'),
-          endDate: new Date('invalid-date'),
-        }
-
-        const result = invoice.updateData(updateData)
-
-        expect(result.isFailure).toBe(true)
-        expectFieldErrors(result, ['dueDate', 'startDate', 'endDate'])
-
-        const dateErrors = result.errors.filter((error) =>
-          error.message.includes('must be a valid date'),
-        )
-        expect(dateErrors.length).toBe(3)
+        domainAssert.assertEqual(invoice.dueDate, updateData.dueDate!)
+        domainAssert.assertEqual(invoice.startDate, updateData.startDate!)
+        domainAssert.assertEqual(invoice.endDate, updateData.endDate!)
+        domainAssert.assertEqual(invoice.totalAmount, updateData.totalAmount!)
+        domainAssert.expectValidValueObject(invoice.status, updateData.status!)
       })
 
       it('should update date range successfully', () => {
-        const invoice = expectSuccess(createInvoice())
+        const invoiceResult = createInvoice()
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
+
         const updateData: InvoiceUpdateInput = {
           startDate: new Date('2023-05-01'),
           endDate: new Date('2023-05-31'),
         }
 
         const result = invoice.updateData(updateData)
+        domainAssert.expectResultSuccess(result)
 
-        expect(result.isSuccess).toBe(true)
-        expect(invoice.startDate).toEqual(updateData.startDate)
-        expect(invoice.endDate).toEqual(updateData.endDate)
+        domainAssert.assertEqual(invoice.startDate, updateData.startDate!)
+        domainAssert.assertEqual(invoice.endDate, updateData.endDate!)
       })
 
       it('should validate status is valid', () => {
-        const invoice = expectSuccess(createInvoice())
+        const invoiceResult = createInvoice()
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
+
         const updateData: InvoiceUpdateInput = {
           status: 'invalid-status',
         }
 
         const result = invoice.updateData(updateData)
-
-        expectFailureWithMessage(
-          result,
-          'must be "open", "closed" or "paid"',
-          1,
+        domainAssert.expectResultFailure(result, [
+          new InvalidInvoiceStatusError('status', 'invalid-status'),
+        ])
+        domainAssert.expectValidValueObject(
+          invoice.status,
+          validCreateData.status,
         )
-        expect(invoice.status.value).toBe(validCreateData.status)
       })
 
       it('should validate totalAmount is a valid currency', () => {
-        const invoice = expectSuccess(createInvoice())
+        const invoiceResult = createInvoice()
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
+
         const updateData: InvoiceUpdateInput = {
           totalAmount: -100,
         }
 
         const result = invoice.updateData(updateData)
-
-        expectFailureWithMessage(
-          result,
-          'The field "totalAmount" must be a valid currency value.',
-          1,
+        domainAssert.expectResultFailure(result, [
+          new InvalidCurrencyError('totalAmount', -100),
+        ])
+        domainAssert.assertEqual(
+          invoice.totalAmount,
+          validCreateData.totalAmount,
         )
-        expect(invoice.totalAmount).toBe(validCreateData.totalAmount)
+      })
+
+      it('should validate dueDate, startDate and endDate are valid dates', () => {
+        const invoiceResult = createInvoice()
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
+
+        const invalidDate = new Date('invalid-date')
+        const updateData: InvoiceUpdateInput = {
+          dueDate: invalidDate,
+          startDate: invalidDate,
+          endDate: invalidDate,
+        }
+
+        const result = invoice.updateData(updateData)
+        domainAssert.expectResultFailure(result)
+        domainAssert.expectFieldErrors(result, [
+          'dueDate',
+          'startDate',
+          'endDate',
+        ])
+
+        const errors = domainAssert.expectResultFailure(result)
+        errors.forEach((error) => {
+          domainAssert.assertTrue(
+            error instanceof InvalidDateError,
+            'Error should be an instance of InvalidDateError',
+          )
+        })
       })
 
       it('should validate endDate is after startDate when both are updated', () => {
-        const invoice = expectSuccess(createInvoice())
+        const invoiceResult = createInvoice()
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
+
         const updateData: InvoiceUpdateInput = {
           startDate: new Date('2023-05-15'),
           endDate: new Date('2023-05-14'),
         }
 
         const result = invoice.updateData(updateData)
-
-        expectFailureWithMessage(result, 'must be after startDate', 1)
-        expect(invoice.startDate).toEqual(validCreateData.startDate)
-        expect(invoice.endDate).toEqual(validCreateData.endDate)
+        domainAssert.expectResultFailure(result, [
+          new InvalidDateRangeError('endDate', 'startDate'),
+        ])
+        domainAssert.assertEqual(invoice.startDate, validCreateData.startDate)
+        domainAssert.assertEqual(invoice.endDate, validCreateData.endDate)
       })
 
       it('should validate endDate is after startDate when only endDate is updated', () => {
-        const invoice = expectSuccess(
-          createInvoice({
-            startDate: new Date('2023-05-10'),
-          }),
-        )
+        const invoiceResult = createInvoice({
+          startDate: new Date('2023-05-10'),
+        })
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
 
         const updateData: InvoiceUpdateInput = {
           endDate: new Date('2023-05-09'),
         }
 
         const result = invoice.updateData(updateData)
-
-        expectFailureWithMessage(result, 'must be after startDate', 1)
-        expect(invoice.endDate).toEqual(validCreateData.endDate)
+        domainAssert.expectResultFailure(result, [
+          new InvalidDateRangeError('endDate', 'startDate'),
+        ])
+        domainAssert.assertEqual(invoice.endDate, validCreateData.endDate)
       })
 
       it('should validate endDate is after startDate when only startDate is updated', () => {
-        const invoice = expectSuccess(createInvoice())
+        const invoiceResult = createInvoice()
+        const invoice = domainAssert.expectResultSuccess(invoiceResult)
+
         const updateData: InvoiceUpdateInput = {
           startDate: new Date('2023-05-15'),
         }
 
         const result = invoice.updateData(updateData)
-
-        expectFailureWithMessage(result, 'must be after startDate', 1)
-        expect(invoice.startDate).toEqual(validCreateData.startDate)
+        domainAssert.expectResultFailure(result, [
+          new InvalidDateRangeError('endDate', 'startDate'),
+        ])
+        domainAssert.assertEqual(invoice.startDate, validCreateData.startDate)
       })
     })
   })

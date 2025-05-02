@@ -1,35 +1,38 @@
 import { AccountType } from '@domain/account'
-import { expectSuccess, expectFailureWithMessage } from '@tests/utils'
+import { InvalidAccountTypeError } from '@domain/account/errors'
+import { domainAssert } from '@tests/framework'
+
 describe('AccountType Value Object', () => {
   it('should create valid AccountType instances', () => {
-    const corrente = expectSuccess(AccountType.create('corrente'))
-    const poupanca = expectSuccess(AccountType.create('poupanca'))
+    const correnteResult = AccountType.create('corrente')
+    const corrente = domainAssert.expectResultSuccess(correnteResult)
+    domainAssert.expectValidValueObject(corrente, 'corrente')
 
-    expect(corrente.value).toBe('corrente')
-    expect(poupanca.value).toBe('poupanca')
+    const poupancaResult = AccountType.create('poupanca')
+    const poupanca = domainAssert.expectResultSuccess(poupancaResult)
+    domainAssert.expectValidValueObject(poupanca, 'poupanca')
   })
 
   it('should fail with invalid type', () => {
     const result = AccountType.create('investimento')
-    expectFailureWithMessage(
-      result,
-      'The field "type" must be "corrente" or "poupanca". Current: investimento',
-    )
+    domainAssert.expectResultFailure(result, [
+      new InvalidAccountTypeError('type', 'investimento'),
+    ])
   })
+
   it('should fail with invalid type for validate method', () => {
     const result = AccountType.validate('investimento')
-    expectFailureWithMessage(
-      result,
-      'The field "type" must be "corrente" or "poupanca". Current: investimento',
-    )
+    domainAssert.expectResultFailure(result, [
+      new InvalidAccountTypeError('type', 'investimento'),
+    ])
   })
 
   it('should compare types correctly', () => {
-    const corrente1 = expectSuccess(AccountType.create('corrente'))
-    const corrente2 = expectSuccess(AccountType.create('corrente'))
-    const poupanca = expectSuccess(AccountType.create('poupanca'))
+    const corrente1 = AccountType.create('corrente').value
+    const corrente2 = AccountType.create('corrente').value
+    const poupanca = AccountType.create('poupanca').value
 
-    expect(corrente1.equals(corrente2)).toBe(true)
-    expect(corrente1.equals(poupanca)).toBe(false)
+    domainAssert.assertTrue(corrente1.equals(corrente2))
+    domainAssert.assertFalse(corrente1.equals(poupanca))
   })
 })

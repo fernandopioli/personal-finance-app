@@ -1,8 +1,24 @@
-import { Transaction } from '@domain/transaction'
-import { expectSuccess, expectFailureWithMessage } from '@tests/utils'
+import {
+  Transaction,
+  TransactionCreateInput,
+  TransactionLoadInput,
+} from '@domain/transaction'
+import {
+  InvalidTransactionTypeError,
+  InvalidTransactionSourceError,
+  InvalidInstallmentError,
+} from '@domain/transaction/errors'
+import {
+  RequiredFieldError,
+  InvalidUuidError,
+  MinLengthError,
+  InvalidDateError,
+  InvalidCurrencyError,
+} from '@domain/errors'
+import { domainAssert } from '@tests/framework'
 
 describe('Transaction Entity', () => {
-  const validAccountTransaction = {
+  const validAccountTransaction: TransactionCreateInput = {
     date: new Date(),
     type: 'expense',
     description: 'Mercado',
@@ -11,7 +27,7 @@ describe('Transaction Entity', () => {
     accountId: '20354d7a-e4fe-47af-8ff6-187bca92f3f9',
   }
 
-  const validInvoiceTransaction = {
+  const validInvoiceTransaction: TransactionCreateInput = {
     date: new Date(),
     type: 'expense',
     description: 'Restaurante',
@@ -20,7 +36,7 @@ describe('Transaction Entity', () => {
     invoiceId: '30354d7a-e4fe-47af-8ff6-187bca92f3f9',
   }
 
-  const validInstallmentTransaction = {
+  const validInstallmentTransaction: TransactionCreateInput = {
     date: new Date(),
     type: 'expense',
     description: 'TV Nova',
@@ -32,7 +48,7 @@ describe('Transaction Entity', () => {
     installmentGroupId: '40354d7a-e4fe-47af-8ff6-187bca92f3f9',
   }
 
-  const validIncomeTransaction = {
+  const validIncomeTransaction: TransactionCreateInput = {
     date: new Date(),
     type: 'income',
     description: 'Salário',
@@ -41,7 +57,7 @@ describe('Transaction Entity', () => {
     accountId: '20354d7a-e4fe-47af-8ff6-187bca92f3f9',
   }
 
-  const validLoadData = {
+  const validLoadData: TransactionLoadInput = {
     id: '8f2bd772-6af8-48a2-9326-6ef5049d51fa',
     date: new Date(),
     type: 'expense',
@@ -54,7 +70,7 @@ describe('Transaction Entity', () => {
     deletedAt: null,
   }
 
-  const validLoadInstallmentData = {
+  const validLoadInstallmentData: TransactionLoadInput = {
     ...validLoadData,
     accountId: undefined,
     invoiceId: '30354d7a-e4fe-47af-8ff6-187bca92f3f9',
@@ -65,70 +81,91 @@ describe('Transaction Entity', () => {
 
   describe('create()', () => {
     it('should create a valid expense transaction from account', () => {
-      const transaction = expectSuccess(
-        Transaction.create(validAccountTransaction),
-      )
+      const result = Transaction.create(validAccountTransaction)
+      const transaction = domainAssert.expectResultSuccess(result)
 
-      expect(transaction.id).toBeDefined()
-      expect(transaction.date).toBe(validAccountTransaction.date)
-      expect(transaction.isExpense()).toBe(true)
-      expect(transaction.isIncome()).toBe(false)
-      expect(transaction.description).toBe(validAccountTransaction.description)
-      expect(transaction.categoryId.value).toBe(
+      domainAssert.expectValidEntity(transaction)
+      domainAssert.assertEqual(transaction.date, validAccountTransaction.date)
+      domainAssert.assertTrue(transaction.isExpense())
+      domainAssert.assertFalse(transaction.isIncome())
+      domainAssert.assertEqual(
+        transaction.description,
+        validAccountTransaction.description,
+      )
+      domainAssert.expectUniqueIdEquals(
+        transaction.categoryId,
         validAccountTransaction.categoryId,
       )
-      expect(transaction.amount).toBe(validAccountTransaction.amount)
-      expect(transaction.accountId?.value).toBe(
-        validAccountTransaction.accountId,
+      domainAssert.assertEqual(
+        transaction.amount,
+        validAccountTransaction.amount,
       )
-      expect(transaction.invoiceId).toBeUndefined()
-      expect(transaction.isFromAccount()).toBe(true)
-      expect(transaction.isFromInvoice()).toBe(false)
-      expect(transaction.isInstallment()).toBe(false)
+      domainAssert.expectUniqueIdEquals(
+        transaction.accountId!,
+        validAccountTransaction.accountId!,
+      )
+      domainAssert.assertEqual(transaction.invoiceId, undefined)
+      domainAssert.assertTrue(transaction.isFromAccount())
+      domainAssert.assertFalse(transaction.isFromInvoice())
+      domainAssert.assertFalse(transaction.isInstallment())
     })
 
     it('should create a valid expense transaction from invoice', () => {
-      const transaction = expectSuccess(
-        Transaction.create(validInvoiceTransaction),
-      )
+      const result = Transaction.create(validInvoiceTransaction)
+      const transaction = domainAssert.expectResultSuccess(result)
 
-      expect(transaction.id).toBeDefined()
-      expect(transaction.isExpense()).toBe(true)
-      expect(transaction.amount).toBe(validInvoiceTransaction.amount)
-      expect(transaction.invoiceId?.value).toBe(
-        validInvoiceTransaction.invoiceId,
+      domainAssert.expectValidEntity(transaction)
+      domainAssert.assertTrue(transaction.isExpense())
+      domainAssert.assertEqual(
+        transaction.amount,
+        validInvoiceTransaction.amount,
       )
-      expect(transaction.accountId).toBeUndefined()
-      expect(transaction.isFromAccount()).toBe(false)
-      expect(transaction.isFromInvoice()).toBe(true)
+      domainAssert.assertEqual(transaction.accountId, undefined)
+      domainAssert.expectUniqueIdEquals(
+        transaction.invoiceId!,
+        validInvoiceTransaction.invoiceId!,
+      )
+      domainAssert.assertFalse(transaction.isFromAccount())
+      domainAssert.assertTrue(transaction.isFromInvoice())
     })
 
     it('should create a valid income transaction', () => {
-      const transaction = expectSuccess(
-        Transaction.create(validIncomeTransaction),
-      )
+      const result = Transaction.create(validIncomeTransaction)
+      const transaction = domainAssert.expectResultSuccess(result)
 
-      expect(transaction.id).toBeDefined()
-      expect(transaction.amount).toBe(validIncomeTransaction.amount)
-      expect(transaction.isExpense()).toBe(false)
-      expect(transaction.isIncome()).toBe(true)
+      domainAssert.expectValidEntity(transaction)
+      domainAssert.assertEqual(
+        transaction.amount,
+        validIncomeTransaction.amount,
+      )
+      domainAssert.assertFalse(transaction.isExpense())
+      domainAssert.assertTrue(transaction.isIncome())
     })
 
     it('should create a valid installment transaction', () => {
-      const transaction = expectSuccess(
-        Transaction.create(validInstallmentTransaction),
-      )
+      const result = Transaction.create(validInstallmentTransaction)
+      const transaction = domainAssert.expectResultSuccess(result)
 
-      expect(transaction.currentInstallment).toBe(
+      domainAssert.assertEqual(transaction.accountId, undefined)
+      domainAssert.expectUniqueIdEquals(
+        transaction.invoiceId!,
+        validInstallmentTransaction.invoiceId!,
+      )
+      domainAssert.assertFalse(transaction.isFromAccount())
+      domainAssert.assertTrue(transaction.isFromInvoice())
+      domainAssert.assertEqual(
+        transaction.currentInstallment,
         validInstallmentTransaction.currentInstallment,
       )
-      expect(transaction.totalInstallments).toBe(
+      domainAssert.assertEqual(
+        transaction.totalInstallments,
         validInstallmentTransaction.totalInstallments,
       )
-      expect(transaction.installmentGroupId?.value).toBe(
-        validInstallmentTransaction.installmentGroupId,
+      domainAssert.expectUniqueIdEquals(
+        transaction.installmentGroupId!,
+        validInstallmentTransaction.installmentGroupId!,
       )
-      expect(transaction.isInstallment()).toBe(true)
+      domainAssert.assertTrue(transaction.isInstallment())
     })
 
     it('should fail if date is empty', () => {
@@ -137,7 +174,7 @@ describe('Transaction Entity', () => {
         date: undefined as unknown as Date,
       })
 
-      expectFailureWithMessage(result, '"date" is required')
+      domainAssert.expectResultFailure(result, [new RequiredFieldError('date')])
     })
 
     it('should fail if date is not a valid date', () => {
@@ -146,7 +183,9 @@ describe('Transaction Entity', () => {
         date: 'not-a-valid-date' as unknown as Date,
       })
 
-      expectFailureWithMessage(result, 'must be a valid date')
+      domainAssert.expectResultFailure(result, [
+        new InvalidDateError('date', 'not-a-valid-date'),
+      ])
     })
 
     it('should fail if type is empty', () => {
@@ -155,7 +194,7 @@ describe('Transaction Entity', () => {
         type: '',
       })
 
-      expectFailureWithMessage(result, '"type" is required')
+      domainAssert.expectFieldErrors(result, ['type'])
     })
 
     it('should fail if type is not a valid transaction type', () => {
@@ -164,7 +203,9 @@ describe('Transaction Entity', () => {
         type: 'not-a-valid-type',
       })
 
-      expectFailureWithMessage(result, 'must be "expense" or "income"')
+      domainAssert.expectResultFailure(result, [
+        new InvalidTransactionTypeError('type', 'not-a-valid-type'),
+      ])
     })
 
     it('should fail if description is empty', () => {
@@ -173,7 +214,9 @@ describe('Transaction Entity', () => {
         description: '',
       })
 
-      expectFailureWithMessage(result, '"description" is required')
+      domainAssert.expectResultFailure(result, [
+        new RequiredFieldError('description'),
+      ])
     })
 
     it('should fail if description is too short', () => {
@@ -182,10 +225,9 @@ describe('Transaction Entity', () => {
         description: 'AB',
       })
 
-      expectFailureWithMessage(
-        result,
-        'The field "description" must be at least 3 characters',
-      )
+      domainAssert.expectResultFailure(result, [
+        new MinLengthError('description', 3, 2),
+      ])
     })
 
     it('should fail if categoryId is empty', () => {
@@ -194,7 +236,9 @@ describe('Transaction Entity', () => {
         categoryId: '',
       })
 
-      expectFailureWithMessage(result, '"categoryId" is required')
+      domainAssert.expectResultFailure(result, [
+        new RequiredFieldError('categoryId'),
+      ])
     })
 
     it('should fail if categoryId is not a valid UUID', () => {
@@ -203,7 +247,9 @@ describe('Transaction Entity', () => {
         categoryId: 'not-a-valid-uuid',
       })
 
-      expectFailureWithMessage(result, 'must be a valid UUID')
+      domainAssert.expectResultFailure(result, [
+        new InvalidUuidError('categoryId', 'not-a-valid-uuid'),
+      ])
     })
 
     it('should fail if amount is empty', () => {
@@ -212,7 +258,9 @@ describe('Transaction Entity', () => {
         amount: undefined as unknown as number,
       })
 
-      expectFailureWithMessage(result, '"amount" is required')
+      domainAssert.expectResultFailure(result, [
+        new RequiredFieldError('amount'),
+      ])
     })
 
     it('should fail if amount is not a number', () => {
@@ -221,7 +269,9 @@ describe('Transaction Entity', () => {
         amount: 'not-a-number' as unknown as number,
       })
 
-      expectFailureWithMessage(result, 'must be a valid currency value')
+      domainAssert.expectResultFailure(result, [
+        new InvalidCurrencyError('amount', 'not-a-number' as unknown as number),
+      ])
     })
 
     it('should fail if both accountId and invoiceId are provided', () => {
@@ -230,20 +280,18 @@ describe('Transaction Entity', () => {
         invoiceId: '30354d7a-e4fe-47af-8ff6-187bca92f3f9',
       })
 
-      expectFailureWithMessage(
-        result,
-        'Transaction must be associated with either an account or an invoice, but not both',
-      )
+      domainAssert.expectResultFailure(result, [
+        new InvalidTransactionSourceError(),
+      ])
     })
 
     it('should fail if neither accountId nor invoiceId is provided', () => {
       const { accountId, ...noAccountInput } = validAccountTransaction
       const result = Transaction.create(noAccountInput)
 
-      expectFailureWithMessage(
-        result,
-        'Transaction must be associated with either an account or an invoice, but not both',
-      )
+      domainAssert.expectResultFailure(result, [
+        new InvalidTransactionSourceError(),
+      ])
     })
 
     it('should fail if accountId is not a valid UUID', () => {
@@ -252,7 +300,9 @@ describe('Transaction Entity', () => {
         accountId: 'not-a-valid-uuid',
       })
 
-      expectFailureWithMessage(result, 'must be a valid UUID')
+      domainAssert.expectResultFailure(result, [
+        new InvalidUuidError('accountId', 'not-a-valid-uuid'),
+      ])
     })
 
     it('should fail if invoiceId is not a valid UUID', () => {
@@ -261,7 +311,9 @@ describe('Transaction Entity', () => {
         invoiceId: 'not-a-valid-uuid',
       })
 
-      expectFailureWithMessage(result, 'must be a valid UUID')
+      domainAssert.expectResultFailure(result, [
+        new InvalidUuidError('invoiceId', 'not-a-valid-uuid'),
+      ])
     })
 
     it('should fail if missing current installment', () => {
@@ -269,26 +321,28 @@ describe('Transaction Entity', () => {
         validInstallmentTransaction
       const result = Transaction.create(noCurrentInput)
 
-      expectFailureWithMessage(
-        result,
-        'Current installment is required when total installments is provided',
-      )
+      domainAssert.expectResultFailure(result, [
+        InvalidInstallmentError.missingCurrentInstallment(),
+      ])
     })
 
     it('should fail if missing total installments', () => {
       const { totalInstallments, ...noTotalInput } = validInstallmentTransaction
       const result = Transaction.create(noTotalInput)
 
-      expectFailureWithMessage(
-        result,
-        'Total installments is required when current installment is provided',
-      )
+      domainAssert.expectResultFailure(result, [
+        InvalidInstallmentError.missingTotalInstallments(),
+      ])
     })
 
     it('should fail if missing installment group ID', () => {
       const { installmentGroupId, ...noGroupInput } =
         validInstallmentTransaction
       const result = Transaction.create(noGroupInput)
+
+      domainAssert.expectResultFailure(result, [
+        InvalidInstallmentError.missingGroupId(),
+      ])
     })
 
     it('should fail if current installment > total installments', () => {
@@ -298,10 +352,9 @@ describe('Transaction Entity', () => {
         totalInstallments: 10,
       })
 
-      expectFailureWithMessage(
-        result,
-        'Current installment (11) cannot be greater than total installments (10)',
-      )
+      domainAssert.expectResultFailure(result, [
+        InvalidInstallmentError.currentGreaterThanTotal(11, 10),
+      ])
     })
 
     it('should fail if currentInstallment value < 1', () => {
@@ -311,10 +364,9 @@ describe('Transaction Entity', () => {
         totalInstallments: 10,
       })
 
-      expectFailureWithMessage(
-        result,
-        'Invalid current installment value: 0. Must be a positive integer.',
-      )
+      domainAssert.expectResultFailure(result, [
+        InvalidInstallmentError.invalidValue('current installment', 0),
+      ])
     })
 
     it('should fail if totalInstallments value < 1', () => {
@@ -324,10 +376,9 @@ describe('Transaction Entity', () => {
         totalInstallments: 0,
       })
 
-      expectFailureWithMessage(
-        result,
-        'Invalid total installments value: 0. Must be a positive integer.',
-      )
+      domainAssert.expectResultFailure(result, [
+        InvalidInstallmentError.invalidValue('total installments', 0),
+      ])
     })
 
     it('should fail if installments > 1 without group ID', () => {
@@ -335,10 +386,9 @@ describe('Transaction Entity', () => {
         validInstallmentTransaction
       const result = Transaction.create(noGroupInput)
 
-      expectFailureWithMessage(
-        result,
-        'Installment group ID is required for installment transactions',
-      )
+      domainAssert.expectResultFailure(result, [
+        InvalidInstallmentError.missingGroupId(),
+      ])
     })
 
     it('should fail if non-integer installment values', () => {
@@ -348,121 +398,160 @@ describe('Transaction Entity', () => {
         totalInstallments: 10,
       })
 
-      expectFailureWithMessage(
-        result,
-        'Invalid current installment value: 1.5. Must be a positive integer.',
-      )
+      domainAssert.expectResultFailure(result, [
+        InvalidInstallmentError.invalidValue('current installment', 1.5),
+      ])
     })
   })
 
   describe('load()', () => {
     it('should load a valid account transaction', () => {
-      const transaction = expectSuccess(Transaction.load(validLoadData))
+      const result = Transaction.load(validLoadData)
+      const transaction = domainAssert.expectResultSuccess(result)
 
-      expect(transaction.id.value).toBe(validLoadData.id)
-      expect(transaction.type.value).toBe(validLoadData.type)
-      expect(transaction.isExpense()).toBe(true)
-      expect(transaction.amount).toBe(validLoadData.amount)
-      expect(transaction.date).toBe(validLoadData.date)
-      expect(transaction.description).toBe(validLoadData.description)
-      expect(transaction.categoryId.value).toBe(validLoadData.categoryId)
-      expect(transaction.accountId?.value).toBe(validLoadData.accountId)
-    })
-    it('should load a valid installment transaction', () => {
-      const transaction = expectSuccess(
-        Transaction.load(validLoadInstallmentData),
+      domainAssert.expectValidEntity(transaction, validLoadData.id)
+      domainAssert.expectValidValueObject(transaction.type, validLoadData.type)
+      domainAssert.assertTrue(transaction.isExpense())
+      domainAssert.assertEqual(transaction.amount, validLoadData.amount)
+      domainAssert.assertEqual(transaction.date, validLoadData.date)
+      domainAssert.assertEqual(
+        transaction.description,
+        validLoadData.description,
       )
+      domainAssert.expectUniqueIdEquals(
+        transaction.categoryId,
+        validLoadData.categoryId,
+      )
+      domainAssert.expectUniqueIdEquals(
+        transaction.accountId!,
+        validLoadData.accountId!,
+      )
+    })
 
-      expect(transaction.id.value).toBe(validLoadInstallmentData.id)
-      expect(transaction.amount).toBe(validLoadInstallmentData.amount)
-      expect(transaction.isExpense()).toBe(true)
-      expect(transaction.date).toBe(validLoadInstallmentData.date)
-      expect(transaction.description).toBe(validLoadInstallmentData.description)
-      expect(transaction.categoryId.value).toBe(
+    it('should load a valid installment transaction', () => {
+      const result = Transaction.load(validLoadInstallmentData)
+      const transaction = domainAssert.expectResultSuccess(result)
+
+      domainAssert.expectValidEntity(transaction, validLoadInstallmentData.id)
+      domainAssert.assertEqual(
+        transaction.amount,
+        validLoadInstallmentData.amount,
+      )
+      domainAssert.assertTrue(transaction.isExpense())
+      domainAssert.assertEqual(transaction.date, validLoadInstallmentData.date)
+      domainAssert.assertEqual(
+        transaction.description,
+        validLoadInstallmentData.description,
+      )
+      domainAssert.expectUniqueIdEquals(
+        transaction.categoryId,
         validLoadInstallmentData.categoryId,
       )
-      expect(transaction.accountId).toBeUndefined()
-      expect(transaction.invoiceId?.value).toBe(
-        validLoadInstallmentData.invoiceId,
+      domainAssert.assertEqual(transaction.accountId, undefined)
+      domainAssert.expectUniqueIdEquals(
+        transaction.invoiceId!,
+        validLoadInstallmentData.invoiceId!,
       )
-      expect(transaction.currentInstallment).toBe(
+      domainAssert.assertEqual(
+        transaction.currentInstallment,
         validLoadInstallmentData.currentInstallment,
       )
-      expect(transaction.totalInstallments).toBe(
+      domainAssert.assertEqual(
+        transaction.totalInstallments,
         validLoadInstallmentData.totalInstallments,
       )
-      expect(transaction.installmentGroupId?.value).toBe(
-        validLoadInstallmentData.installmentGroupId,
+      domainAssert.expectUniqueIdEquals(
+        transaction.installmentGroupId!,
+        validLoadInstallmentData.installmentGroupId!,
       )
     })
   })
 
   describe('updateData()', () => {
     it('should update basic fields', () => {
-      const transaction = expectSuccess(Transaction.load(validLoadData))
+      const loadResult = Transaction.load(validLoadData)
+      const transaction = domainAssert.expectResultSuccess(loadResult)
+
       const newDate = new Date(2023, 5, 15)
       const newType = 'income'
       const newAmount = 200
       const newDescription = 'Mercado Atualizado'
       const newCategoryId = '9f2bd772-6af8-48a2-9326-6ef5049d51fa'
 
-      expectSuccess(
-        transaction.updateData({
-          date: newDate,
-          type: newType,
-          amount: newAmount,
-          description: newDescription,
-          categoryId: newCategoryId,
-        }),
-      )
+      const updateResult = transaction.updateData({
+        date: newDate,
+        type: newType,
+        amount: newAmount,
+        description: newDescription,
+        categoryId: newCategoryId,
+      })
 
-      expect(transaction.date).toBe(newDate)
-      expect(transaction.type.value).toBe(newType)
-      expect(transaction.amount).toBe(newAmount)
-      expect(transaction.description).toBe(newDescription)
-      expect(transaction.categoryId.value).toBe(newCategoryId)
+      domainAssert.expectResultSuccess(updateResult)
+      domainAssert.assertEqual(transaction.date, newDate)
+      domainAssert.expectValidValueObject(transaction.type, newType)
+      domainAssert.assertEqual(transaction.amount, newAmount)
+      domainAssert.assertEqual(transaction.description, newDescription)
+      domainAssert.expectUniqueIdEquals(transaction.categoryId, newCategoryId)
     })
 
     it('should fail if date is not a valid date', () => {
-      const transaction = expectSuccess(Transaction.load(validLoadData))
+      const loadResult = Transaction.load(validLoadData)
+      const transaction = domainAssert.expectResultSuccess(loadResult)
+
       const result = transaction.updateData({
         date: 'not-a-valid-date' as unknown as Date,
       })
 
-      expectFailureWithMessage(result, 'must be a valid date')
+      domainAssert.expectResultFailure(result, [
+        new InvalidDateError('date', 'not-a-valid-date'),
+      ])
     })
 
     it('should fail if type is not a valid transaction type', () => {
-      const transaction = expectSuccess(Transaction.load(validLoadData))
+      const loadResult = Transaction.load(validLoadData)
+      const transaction = domainAssert.expectResultSuccess(loadResult)
+
       const result = transaction.updateData({ type: 'not-a-valid-type' })
 
-      expectFailureWithMessage(result, 'must be "expense" or "income"')
+      domainAssert.expectResultFailure(result, [
+        new InvalidTransactionTypeError('type', 'not-a-valid-type'),
+      ])
     })
 
     it('should fail if description is too short', () => {
-      const transaction = expectSuccess(Transaction.load(validLoadData))
+      const loadResult = Transaction.load(validLoadData)
+      const transaction = domainAssert.expectResultSuccess(loadResult)
+
       const result = transaction.updateData({ description: 'AB' })
 
-      expectFailureWithMessage(
-        result,
-        'The field "description" must be at least 3 characters',
-      )
+      domainAssert.expectResultFailure(result, [
+        new MinLengthError('description', 3, 2),
+      ])
     })
 
     it('should fail if categoryId is not a valid UUID', () => {
-      const transaction = expectSuccess(Transaction.load(validLoadData))
+      const loadResult = Transaction.load(validLoadData)
+      const transaction = domainAssert.expectResultSuccess(loadResult)
+
       const result = transaction.updateData({ categoryId: 'not-a-valid-uuid' })
 
-      expectFailureWithMessage(result, 'must be a valid UUID')
+      domainAssert.expectResultFailure(result, [
+        new InvalidUuidError('categoryId', 'not-a-valid-uuid'),
+      ])
     })
 
     it('should fail if amount is not a valid currency value', () => {
-      const transaction = expectSuccess(Transaction.load(validLoadData))
+      const loadResult = Transaction.load(validLoadData)
+      const transaction = domainAssert.expectResultSuccess(loadResult)
+
       const result = transaction.updateData({
         amount: 'not-a-valid-currency' as unknown as number,
       })
 
-      expectFailureWithMessage(result, 'must be a valid currency value')
+      domainAssert.expectFailureWithMessage(
+        result,
+        'must be a valid currency value',
+      )
     })
   })
 })

@@ -12,283 +12,384 @@ import {
   InvalidDateError,
   NumberRangeError,
   InvalidCurrencyError,
+  ValidationError,
 } from '@domain/errors'
+import { domainAssert } from '@tests/framework'
 
 describe('Validator + FieldValidator', () => {
-  const createValidatorAndCheck = (
-    validations: (validator: Validator) => void,
-    expectedErrors: number,
-    errorChecks?: (errors: Error[]) => void,
-  ) => {
-    const validator = new Validator()
-    validations(validator)
+  describe('required validation', () => {
+    it('should add RequiredFieldError if value is null/undefined/empty string', () => {
+      const validator = new Validator()
 
-    const errors = validator.getErrors()
-    expect(errors).toHaveLength(expectedErrors)
+      validator.check('email', '').required()
+      validator.check('document', ' ').required()
+      validator.check('name', null).required()
+      validator.check('address', undefined).required()
 
-    if (errorChecks) {
-      errorChecks(errors)
-    }
+      domainAssert.expectAllValidationErrors(validator, [
+        { type: RequiredFieldError, field: 'email' },
+        { type: RequiredFieldError, field: 'document' },
+        { type: RequiredFieldError, field: 'name' },
+        { type: RequiredFieldError, field: 'address' },
+      ])
+    })
 
-    return { validator, errors }
-  }
+    it('should NOT add RequiredFieldError if value is present', () => {
+      const validator = new Validator()
 
-  const assertError = (error: Error, errorClass: any, field: string) => {
-    expect(error).toBeInstanceOf(errorClass)
-    expect((error as any).field).toBe(field)
-  }
+      validator.check('email', 'test@example.com').required()
+      validator.check('name', 'John Doe').required()
+      validator.check('count', 0).required()
+      validator.check('active', false).required()
 
-  it('should add RequiredFieldError if value is null/undefined/empty string', () => {
-    createValidatorAndCheck(
-      (validator) => {
-        validator.check('email', '').required()
-        validator.check('name', null).required()
-        validator.check('address', undefined).required()
-      },
-      3,
-      (errors) => {
-        assertError(errors[0], RequiredFieldError, 'email')
-        assertError(errors[1], RequiredFieldError, 'name')
-        assertError(errors[2], RequiredFieldError, 'address')
-      },
-    )
+      domainAssert.expectNoValidationErrors(validator)
+    })
   })
 
-  it('should add MinNumberError if number is smaller than min', () => {
-    createValidatorAndCheck(
-      (validator) => validator.check('age', -1).minNumber(0),
-      1,
-      (errors) => {
-        assertError(errors[0], MinNumberError, 'age')
-        expect(errors[0].message).toContain('must be >= 0')
-      },
-    )
-  })
+  describe('number validations', () => {
+    it('should add MinNumberError if number is smaller than min', () => {
+      const validator = new Validator()
 
-  it('should add MaxNumberError if number is bigger than max', () => {
-    createValidatorAndCheck(
-      (validator) => validator.check('price', 150).maxNumber(100),
-      1,
-      (errors) => assertError(errors[0], MaxNumberError, 'price'),
-    )
-  })
+      validator.check('age', -1).minNumber(0)
 
-  it('should add NumberRangeError if number is outside range', () => {
-    createValidatorAndCheck(
-      (validator) => {
-        validator.check('day', -1).numberInRange(1, 31)
-        validator.check('month', 13).numberInRange(1, 12)
-      },
-      2,
-      (errors) => {
-        assertError(errors[0], NumberRangeError, 'day')
-        assertError(errors[1], NumberRangeError, 'month')
-        expect(errors[0].message).toContain('must be between 1 and 31')
-        expect(errors[1].message).toContain('must be between 1 and 12')
-      },
-    )
-  })
+      const errors = domainAssert.expectValidationErrorCount(validator, 1)
+      domainAssert.expectValidationErrorOfType(
+        errors,
+        MinNumberError,
+        'age',
+        'must be >= 0',
+      )
+    })
 
-  it('should NOT add NumberRangeError if number is within range', () => {
-    createValidatorAndCheck((validator) => {
+    it('should NOT add MinNumberError if number is equal to or greater than min', () => {
+      const validator = new Validator()
+
+      validator.check('exactMin', 5).minNumber(5)
+      validator.check('aboveMin', 10).minNumber(5)
+
+      domainAssert.expectNoValidationErrors(validator)
+    })
+
+    it('should add MaxNumberError if number is bigger than max', () => {
+      const validator = new Validator()
+
+      validator.check('price', 150).maxNumber(100)
+
+      const errors = domainAssert.expectValidationErrorCount(validator, 1)
+      domainAssert.expectValidationErrorOfType(errors, MaxNumberError, 'price')
+    })
+
+    it('should NOT add MaxNumberError if number is equal to or less than max', () => {
+      const validator = new Validator()
+
+      validator.check('exactMax', 100).maxNumber(100)
+      validator.check('belowMax', 50).maxNumber(100)
+
+      domainAssert.expectNoValidationErrors(validator)
+    })
+
+    it('should add NumberRangeError if number is outside range', () => {
+      const validator = new Validator()
+
+      validator.check('day', -1).numberInRange(1, 31)
+      validator.check('month', 13).numberInRange(1, 12)
+
+      domainAssert.expectAllValidationErrors(validator, [
+        {
+          type: NumberRangeError,
+          field: 'day',
+          messageContent: 'must be between 1 and 31',
+        },
+        {
+          type: NumberRangeError,
+          field: 'month',
+          messageContent: 'must be between 1 and 12',
+        },
+      ])
+    })
+
+    it('should NOT add NumberRangeError if number is within range', () => {
+      const validator = new Validator()
+
       validator.check('day', 15).numberInRange(1, 31)
       validator.check('month', 6).numberInRange(1, 12)
-      // Min/max inclusive
       validator.check('minValue', 1).numberInRange(1, 10)
       validator.check('maxValue', 10).numberInRange(1, 10)
-    }, 0)
+
+      domainAssert.expectNoValidationErrors(validator)
+    })
+
+    it('should add NegativeNumberError if number is negative', () => {
+      const validator = new Validator()
+
+      validator.check('amount', -100).isNonNegativeNumber()
+
+      const errors = domainAssert.expectValidationErrorCount(validator, 1)
+      domainAssert.expectValidationErrorOfType(
+        errors,
+        NegativeNumberError,
+        'amount',
+        'must be greater than or equal to 0',
+      )
+    })
+
+    it('should NOT add NegativeNumberError if number is zero or positive', () => {
+      const validator = new Validator()
+
+      validator.check('amount1', 0).isNonNegativeNumber()
+      validator.check('amount2', 100).isNonNegativeNumber()
+
+      domainAssert.expectNoValidationErrors(validator)
+    })
   })
 
-  it('should add MinLengthError if string is too short', () => {
-    createValidatorAndCheck(
-      (validator) => validator.check('username', 'ab').minLength(3),
-      1,
-      (errors) => assertError(errors[0], MinLengthError, 'username'),
-    )
+  describe('string length validations', () => {
+    it('should add MinLengthError if string is too short', () => {
+      const validator = new Validator()
+
+      validator.check('username', 'ab').minLength(3)
+
+      const errors = domainAssert.expectValidationErrorCount(validator, 1)
+      domainAssert.expectValidationErrorOfType(
+        errors,
+        MinLengthError,
+        'username',
+      )
+    })
+
+    it('should NOT add MinLengthError if string is long enough', () => {
+      const validator = new Validator()
+
+      validator.check('exactMin', 'abc').minLength(3)
+      validator.check('aboveMin', 'abcde').minLength(3)
+
+      domainAssert.expectNoValidationErrors(validator)
+    })
+
+    it('should add MaxLengthError if string is too long', () => {
+      const validator = new Validator()
+
+      validator.check('password', 'abcdefghijk').maxLength(5)
+
+      const errors = domainAssert.expectValidationErrorCount(validator, 1)
+      domainAssert.expectValidationErrorOfType(
+        errors,
+        MaxLengthError,
+        'password',
+      )
+    })
+
+    it('should NOT add MaxLengthError if string is short enough', () => {
+      const validator = new Validator()
+
+      validator.check('exactMax', 'abcde').maxLength(5)
+      validator.check('belowMax', 'abc').maxLength(5)
+
+      domainAssert.expectNoValidationErrors(validator)
+    })
   })
 
-  it('should add MaxLengthError if string is too long', () => {
-    createValidatorAndCheck(
-      (validator) => validator.check('password', 'abcdefghijk').maxLength(5),
-      1,
-      (errors) => assertError(errors[0], MaxLengthError, 'password'),
-    )
+  describe('array validations', () => {
+    it('should add ArrayNotEmptyError if array is empty or not an array', () => {
+      const validator = new Validator()
+
+      validator.check('tags', []).arrayNotEmpty()
+      validator.check('options', 'not-an-array').arrayNotEmpty()
+
+      domainAssert.expectAllValidationErrors(validator, [
+        { type: ArrayNotEmptyError, field: 'tags' },
+        { type: ArrayNotEmptyError, field: 'options' },
+      ])
+    })
+
+    it('should NOT add ArrayNotEmptyError if array has items', () => {
+      const validator = new Validator()
+
+      validator.check('tags', ['tag1']).arrayNotEmpty()
+      validator.check('options', ['opt1', 'opt2']).arrayNotEmpty()
+
+      domainAssert.expectNoValidationErrors(validator)
+    })
   })
 
-  it('should add ArrayNotEmptyError if array is empty or not an array', () => {
-    createValidatorAndCheck(
-      (validator) => {
-        validator.check('tags', []).arrayNotEmpty()
-        validator.check('options', 'not-an-array').arrayNotEmpty()
-      },
-      2,
-      (errors) => {
-        assertError(errors[0], ArrayNotEmptyError, 'tags')
-        assertError(errors[1], ArrayNotEmptyError, 'options')
-      },
-    )
-  })
+  describe('UUID validations', () => {
+    it('should add InvalidUuidError if string is not a valid UUID', () => {
+      const validator = new Validator()
 
-  it('should add InvalidUuidError if string is not a valid UUID', () => {
-    createValidatorAndCheck(
-      (validator) => {
-        validator.check('id1', 'not-a-uuid').isValidUuid()
-        validator.check('id2', '123-456').isValidUuid()
-        validator.check('id3', 123456).isValidUuid()
-      },
-      3,
-      (errors) => {
-        assertError(errors[0], InvalidUuidError, 'id1')
-        assertError(errors[1], InvalidUuidError, 'id2')
-        assertError(errors[2], InvalidUuidError, 'id3')
-        expect(errors[0].message).toContain('must be a valid UUID')
-      },
-    )
-  })
+      validator.check('id1', 'not-a-uuid').isValidUuid()
+      validator.check('id2', '123-456').isValidUuid()
+      validator.check('id3', 123456).isValidUuid()
 
-  it('should NOT add InvalidUuidError if string is a valid UUID', () => {
-    createValidatorAndCheck((validator) => {
+      domainAssert.expectAllValidationErrors(validator, [
+        {
+          type: InvalidUuidError,
+          field: 'id1',
+          messageContent: 'must be a valid UUID',
+        },
+        { type: InvalidUuidError, field: 'id2' },
+        { type: InvalidUuidError, field: 'id3' },
+      ])
+    })
+
+    it('should NOT add InvalidUuidError if string is a valid UUID', () => {
+      const validator = new Validator()
+
       validator
         .check('id', '123e4567-e89b-42d3-a456-556642440000')
         .isValidUuid()
-    }, 0)
+
+      domainAssert.expectNoValidationErrors(validator)
+    })
   })
 
-  it('should add NegativeNumberError if number is negative', () => {
-    createValidatorAndCheck(
-      (validator) => validator.check('amount', -100).isNonNegativeNumber(),
-      1,
-      (errors) => {
-        assertError(errors[0], NegativeNumberError, 'amount')
-        expect(errors[0].message).toContain(
-          'must be greater than or equal to 0',
-        )
-      },
-    )
-  })
+  describe('date range validations', () => {
+    it('should add InvalidDateRangeError if date is not after reference date', () => {
+      const validator = new Validator()
+      const startDate = new Date('2023-05-01')
 
-  it('should NOT add NegativeNumberError if number is zero or positive', () => {
-    createValidatorAndCheck((validator) => {
-      validator.check('amount1', 0).isNonNegativeNumber()
-      validator.check('amount2', 100).isNonNegativeNumber()
-    }, 0)
-  })
+      validator.check('endDate1', new Date('2023-04-30')).isDateAfter(startDate)
+      validator.check('endDate2', new Date('2023-05-01')).isDateAfter(startDate)
 
-  it('should add InvalidDateRangeError if date is not after reference date', () => {
-    const startDate = new Date('2023-05-01')
+      domainAssert.expectAllValidationErrors(validator, [
+        {
+          type: InvalidDateRangeError,
+          field: 'endDate1',
+          messageContent: 'must be after startDate',
+        },
+        { type: InvalidDateRangeError, field: 'endDate2' },
+      ])
+    })
 
-    createValidatorAndCheck(
-      (validator) => {
-        // Data anterior à referência
-        validator
-          .check('endDate1', new Date('2023-04-30'))
-          .isDateAfter(startDate)
-        // Data igual à referência
-        validator
-          .check('endDate2', new Date('2023-05-01'))
-          .isDateAfter(startDate)
-      },
-      2,
-      (errors) => {
-        assertError(errors[0], InvalidDateRangeError, 'endDate1')
-        assertError(errors[1], InvalidDateRangeError, 'endDate2')
-        expect(errors[0].message).toContain('must be after startDate')
-      },
-    )
-  })
+    it('should NOT add InvalidDateRangeError if date is after reference date', () => {
+      const validator = new Validator()
+      const startDate = new Date('2023-05-01')
 
-  it('should NOT add InvalidDateRangeError if date is after reference date', () => {
-    const startDate = new Date('2023-05-01')
-
-    createValidatorAndCheck((validator) => {
       validator.check('endDate', new Date('2023-05-02')).isDateAfter(startDate)
-    }, 0)
+
+      domainAssert.expectNoValidationErrors(validator)
+    })
   })
 
-  it('should add InvalidDateError if value is not a Date object', () => {
-    createValidatorAndCheck(
-      (validator) => {
-        validator.check('birthDate1', 'not-a-date').isValidDate()
-        validator.check('birthDate2', 123456).isValidDate()
-        validator.check('birthDate3', {}).isValidDate()
-      },
-      3,
-      (errors) => {
-        assertError(errors[0], InvalidDateError, 'birthDate1')
-        assertError(errors[1], InvalidDateError, 'birthDate2')
-        assertError(errors[2], InvalidDateError, 'birthDate3')
-      },
-    )
-  })
+  describe('date validations', () => {
+    it('should add InvalidDateError if value is not a valid date', () => {
+      const validator = new Validator()
+      const invalidDate = new Date('invalid-date')
 
-  it('should add InvalidDateError if Date is invalid (NaN)', () => {
-    const invalidDate = new Date('invalid-date')
+      validator.check('birthDate1', 'not-a-date').isValidDate()
+      validator.check('birthDate2', 123456).isValidDate()
+      validator.check('birthDate3', {}).isValidDate()
+      validator.check('birthDate4', invalidDate).isValidDate()
 
-    createValidatorAndCheck(
-      (validator) => {
-        validator.check('birthDate', invalidDate).isValidDate()
-      },
-      1,
-      (errors) => {
-        assertError(errors[0], InvalidDateError, 'birthDate')
-        expect(errors[0].message).toContain('must be a valid date')
-      },
-    )
-  })
+      domainAssert.expectAllValidationErrors(validator, [
+        { type: InvalidDateError, field: 'birthDate1' },
+        { type: InvalidDateError, field: 'birthDate2' },
+        { type: InvalidDateError, field: 'birthDate3' },
+        {
+          type: InvalidDateError,
+          field: 'birthDate4',
+          messageContent: 'must be a valid date',
+        },
+      ])
+    })
 
-  it('should NOT add InvalidDateError if Date is valid', () => {
-    createValidatorAndCheck((validator) => {
+    it('should NOT add InvalidDateError if Date is valid', () => {
+      const validator = new Validator()
+
       validator.check('birthDate', new Date('2000-01-01')).isValidDate()
-    }, 0)
+      validator.check('currentDate', new Date()).isValidDate()
+
+      domainAssert.expectNoValidationErrors(validator)
+    })
   })
 
-  it('should add InvalidCurrencyError if value is not a valid currency', () => {
-    createValidatorAndCheck(
-      (validator) => {
-        validator.check('amount', 'not-a-currency').isCurrency()
-      },
-      1,
-      (errors) => {
-        assertError(errors[0], InvalidCurrencyError, 'amount')
-      },
-    )
+  describe('currency validations', () => {
+    it('should add InvalidCurrencyError if value is not a valid currency', () => {
+      const validator = new Validator()
+
+      validator.check('amount1', 'not-a-currency').isCurrency()
+      validator.check('amount2', NaN).isCurrency()
+      validator.check('amount3', {}).isCurrency()
+      validator.check('amount4', -100).isCurrency()
+
+      domainAssert.expectAllValidationErrors(validator, [
+        { type: InvalidCurrencyError, field: 'amount1' },
+        { type: InvalidCurrencyError, field: 'amount2' },
+        { type: InvalidCurrencyError, field: 'amount3' },
+        { type: InvalidCurrencyError, field: 'amount4' },
+      ])
+    })
+
+    it('should NOT add InvalidCurrencyError if value is a valid currency', () => {
+      const validator = new Validator()
+
+      validator.check('amount1', 0).isCurrency()
+      validator.check('amount2', 100).isCurrency()
+      validator.check('amount3', 99.99).isCurrency()
+      validator.check('amount4', 99.9999).isCurrency()
+
+      domainAssert.expectNoValidationErrors(validator)
+    })
   })
 
-  it('should add InvalidCurrencyError if value is negative', () => {
-    createValidatorAndCheck(
-      (validator) => validator.check('amount', -100).isCurrency(),
-      1,
-      (errors) => assertError(errors[0], InvalidCurrencyError, 'amount'),
-    )
-  })
-  it('should collect multiple errors on different fields', () => {
-    createValidatorAndCheck(
-      (validator) => {
-        validator.check('nome', '').required().minLength(3)
-        validator.check('idade', -5).minNumber(0)
-        validator.check('tags', []).arrayNotEmpty()
-      },
-      3,
-      (errors) => {
-        const findError = (errorClass: any, field: string) =>
-          errors.find(
-            (e) => e instanceof errorClass && (e as any).field === field,
-          )
+  describe('combined validations', () => {
+    it('should collect multiple errors on different fields', () => {
+      const validator = new Validator()
 
-        expect(findError(RequiredFieldError, 'nome')).toBeDefined()
-        expect(findError(MinNumberError, 'idade')).toBeDefined()
-        expect(findError(ArrayNotEmptyError, 'tags')).toBeDefined()
-      },
-    )
-  })
+      validator.check('nome', '').required().minLength(3)
+      validator.check('idade', -5).minNumber(0)
+      validator.check('tags', []).arrayNotEmpty()
 
-  it('should NOT add error if the checks pass', () => {
-    const { validator } = createValidatorAndCheck((validator) => {
+      domainAssert.expectAllValidationErrors(validator, [
+        { type: RequiredFieldError, field: 'nome' },
+        { type: MinNumberError, field: 'idade' },
+        { type: ArrayNotEmptyError, field: 'tags' },
+      ])
+    })
+
+    it('should NOT add error if the checks pass', () => {
+      const validator = new Validator()
+
       validator.check('nome', 'John Doe').required().minLength(3).maxLength(20)
       validator.check('idade', 30).minNumber(0).maxNumber(100)
       validator.check('tags', ['one', 'two']).arrayNotEmpty()
-    }, 0)
 
-    expect(validator.hasErrors()).toBe(false)
+      domainAssert.expectNoValidationErrors(validator)
+    })
+
+    it('should add errors directly with addErrors method', () => {
+      const validator = new Validator()
+
+      const errorsToAdd: ValidationError[] = [
+        new RequiredFieldError('campo1'),
+        new MinNumberError('campo2', 10, 5),
+      ]
+
+      validator.addErrors(errorsToAdd)
+
+      const errors = domainAssert.expectValidationErrorCount(validator, 2)
+      domainAssert.expectValidationErrorOfType(
+        errors,
+        RequiredFieldError,
+        'campo1',
+      )
+      domainAssert.expectValidationErrorOfType(errors, MinNumberError, 'campo2')
+    })
+
+    it('should combine errors added via check and addErrors', () => {
+      const validator = new Validator()
+
+      validator.check('email', '').required()
+
+      const additionalErrors: ValidationError[] = [
+        new MaxLengthError('name', 50, 60),
+      ]
+
+      validator.addErrors(additionalErrors)
+
+      domainAssert.expectAllValidationErrors(validator, [
+        { type: RequiredFieldError, field: 'email' },
+        { type: MaxLengthError, field: 'name' },
+      ])
+    })
   })
 })

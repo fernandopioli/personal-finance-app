@@ -113,7 +113,6 @@ export class Category extends Entity {
   private static validateCreate(input: CategoryCreateInput): Result<void> {
     const validator = new Validator()
     validator.check('name', input.name).required().minLength(3)
-    validator.check('type', input.type).required()
 
     if (input.parentId) {
       validator.check('parentId', input.parentId).isValidUuid()

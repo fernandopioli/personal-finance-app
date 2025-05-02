@@ -1,37 +1,48 @@
 import { CategoryType } from '@domain/category'
-import { expectSuccess, expectFailureWithMessage } from '@tests/utils'
+import { InvalidCategoryTypeError } from '@domain/category/errors'
+import { domainAssert } from '@tests/framework'
 
 describe('CategoryType Value Object', () => {
-  it('should create valid CategoryType instances', () => {
-    const expense = expectSuccess(CategoryType.create('expense'))
-    const income = expectSuccess(CategoryType.create('income'))
+  describe('create()', () => {
+    it('should create valid CategoryType instances', () => {
+      const expenseResult = CategoryType.create('expense')
+      domainAssert.expectResultSuccess(expenseResult)
+      domainAssert.expectValidValueObject(expenseResult.value, 'expense')
 
-    expect(expense.value).toBe('expense')
-    expect(income.value).toBe('income')
+      const incomeResult = CategoryType.create('income')
+      domainAssert.expectResultSuccess(incomeResult)
+      domainAssert.expectValidValueObject(incomeResult.value, 'income')
+    })
+
+    it('should fail with invalid type', () => {
+      const result = CategoryType.create('invalid-type')
+
+      domainAssert.expectResultFailure(result, [
+        new InvalidCategoryTypeError('type', 'invalid-type'),
+      ])
+    })
   })
 
-  it('should fail with invalid type', () => {
-    const result = CategoryType.create('invalid-type')
-    expectFailureWithMessage(
-      result,
-      'The field "type" must be "expense" or "income". Current: invalid-type',
-    )
+  describe('validate()', () => {
+    it('should fail with invalid type for validate method', () => {
+      const result = CategoryType.validate('invalid-type')
+
+      domainAssert.expectResultFailure(result, [
+        new InvalidCategoryTypeError('type', 'invalid-type'),
+      ])
+    })
   })
 
-  it('should fail with invalid type for validate method', () => {
-    const result = CategoryType.validate('invalid-type')
-    expectFailureWithMessage(
-      result,
-      'The field "type" must be "expense" or "income". Current: invalid-type',
-    )
-  })
+  describe('equals()', () => {
+    it('should compare types correctly', () => {
+      const expense1 = CategoryType.create('expense').value
+      const expense2 = CategoryType.create('expense').value
+      const income = CategoryType.create('income').value
 
-  it('should compare types correctly', () => {
-    const expense1 = expectSuccess(CategoryType.create('expense'))
-    const expense2 = expectSuccess(CategoryType.create('expense'))
-    const income = expectSuccess(CategoryType.create('income'))
+      domainAssert.expectValidValueObject(expense1, 'expense')
 
-    expect(expense1.equals(expense2)).toBe(true)
-    expect(expense1.equals(income)).toBe(false)
+      domainAssert.assertTrue(expense1.equals(expense2))
+      domainAssert.assertFalse(expense1.equals(income))
+    })
   })
 })

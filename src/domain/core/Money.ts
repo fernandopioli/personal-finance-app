@@ -32,15 +32,17 @@ export class Money extends ValueObject<MoneyProps> {
     amount: number,
     currency: string = Money.DEFAULT_CURRENCY,
   ): Result<Money> {
+    const normalizedCurrency = currency.toUpperCase()
+
     if (!this.isValidAmount(amount)) {
       return Result.fail([new InvalidMoneyValueError('amount', amount)])
     }
 
-    if (!this.isValidCurrency(currency)) {
+    if (!this.isValidCurrency(normalizedCurrency)) {
       return Result.fail([new InvalidMoneyValueError('currency', currency)])
     }
 
-    return Result.ok(new Money({ amount, currency }))
+    return Result.ok(new Money({ amount, currency: normalizedCurrency }))
   }
 
   private static isValidAmount(amount: number): boolean {

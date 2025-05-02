@@ -86,7 +86,9 @@ export class FieldValidator {
   }
 
   private isEmpty(value: any): boolean {
-    return value === null || value === undefined || value === ''
+    return (
+      value === null || value === undefined || value === '' || value === ' '
+    )
   }
 
   public isValidUuid(): this {
@@ -136,7 +138,7 @@ export class FieldValidator {
 
   public isCurrency(): this {
     if (
-      typeof this.value !== 'number' ||
+      (this.value !== undefined && typeof this.value !== 'number') ||
       (typeof this.value === 'number' && isNaN(this.value)) ||
       (typeof this.value === 'number' && this.value < 0)
     ) {

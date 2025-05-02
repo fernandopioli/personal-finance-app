@@ -1,9 +1,13 @@
 import { Account } from '@domain/account'
+import { InvalidAccountTypeError } from '@domain/account/errors'
 import {
-  expectMultipleErrors,
-  expectFailureWithMessage,
-  expectSuccess,
-} from '@tests/utils'
+  MinLengthError,
+  RequiredFieldError,
+  InvalidUuidError,
+  MaxLengthError,
+  InvalidCurrencyError,
+} from '@domain/errors'
+import { domainAssert } from '@tests/framework'
 
 describe('Account Entity', () => {
   const validCreateData = {
@@ -15,13 +19,9 @@ describe('Account Entity', () => {
   }
 
   const validAccountLoadData = {
-    id: '8f2bd772-6af8-48a2-9326-6ef5049d51fa',
-    bankId: '20354d7a-e4fe-47af-8ff6-187bca92f3f9',
-    name: 'Minha Conta',
-    type: 'corrente',
+    ...validCreateData,
     balance: 1000.55,
-    agency: '12345',
-    number: '987654',
+    id: '8f2bd772-6af8-48a2-9326-6ef5049d51fa',
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -35,148 +35,172 @@ describe('Account Entity', () => {
 
   describe('create()', () => {
     it('should create a valid account with default balance = 0', () => {
-      const account = expectSuccess(createAccount())
+      const result = createAccount()
+      const account = domainAssert.expectResultSuccess(result)
 
-      expect(account.id).toBeDefined()
-      expect(account.bankId.value).toBe(validCreateData.bankId)
-      expect(account.name).toBe(validCreateData.name)
-      expect(account.type.value).toBe(validCreateData.type)
-      expect(account.balance).toBe(0)
-      expect(account.agency).toBe(validCreateData.agency)
-      expect(account.number).toBe(validCreateData.number)
+      domainAssert.expectValidEntity(account)
+      domainAssert.expectUniqueIdEquals(account.bankId, validCreateData.bankId)
+      domainAssert.assertEqual(account.name, validCreateData.name)
+      domainAssert.expectValidValueObject(account.type, validCreateData.type)
+      domainAssert.assertEqual(account.balance, 0)
+      domainAssert.assertEqual(account.agency, validCreateData.agency)
+      domainAssert.assertEqual(account.number, validCreateData.number)
     })
 
     it('should create a valid account with type "corrente"', () => {
-      const account = expectSuccess(createAccount({ type: 'corrente' }))
-      expect(account.type.value).toBe('corrente')
+      const result = createAccount({ type: 'corrente' })
+      const account = domainAssert.expectResultSuccess(result)
+      domainAssert.expectValidValueObject(account.type, 'corrente')
     })
 
     it('should create a valid account with type "poupanca"', () => {
-      const account = expectSuccess(createAccount({ type: 'poupanca' }))
-      expect(account.type.value).toBe('poupanca')
+      const result = createAccount({ type: 'poupanca' })
+      const account = domainAssert.expectResultSuccess(result)
+      domainAssert.expectValidValueObject(account.type, 'poupanca')
     })
 
     it('should fail if bankId is empty', () => {
       const result = createAccount({ bankId: '' })
-      expectFailureWithMessage(result, '"bankId" is required', 1)
+      domainAssert.expectResultFailure(result, [
+        new RequiredFieldError('bankId'),
+      ])
     })
 
     it('should fail if bankId is not a valid UUID', () => {
       const result = createAccount({ bankId: 'not-a-valid-uuid' })
-      expectFailureWithMessage(result, 'must be a valid UUID', 1)
+      domainAssert.expectResultFailure(result, [
+        new InvalidUuidError('bankId', 'not-a-valid-uuid'),
+      ])
     })
 
     it('should fail if name is empty', () => {
       const result = createAccount({ name: '' })
-      expectFailureWithMessage(result, '"name" is required', 1)
+      domainAssert.expectResultFailure(result, [new RequiredFieldError('name')])
     })
 
     it('should fail if name < 3 chars', () => {
       const result = createAccount({ name: 'x' })
-      expectFailureWithMessage(
-        result,
-        'The field "name" must be at least 3 characters. Current length: 1',
-      )
+      domainAssert.expectResultFailure(result, [
+        new MinLengthError('name', 3, 1),
+      ])
+    })
+
+    it('should fail if type is empty', () => {
+      const result = createAccount({ type: '' })
+      domainAssert.expectResultFailure(result, [
+        new InvalidAccountTypeError('type', ''),
+      ])
     })
 
     it('should fail if type is invalid', () => {
       const result = createAccount({ type: 'investimento' })
-      expectFailureWithMessage(
-        result,
-        'The field "type" must be "corrente" or "poupanca". Current: investimento',
-      )
+      domainAssert.expectResultFailure(result, [
+        new InvalidAccountTypeError('type', 'investimento'),
+      ])
     })
 
     it('should fail if agency > 10 chars', () => {
       const result = createAccount({
         agency: '12345678901',
       })
-      expectFailureWithMessage(
-        result,
-        'The field "agency" must be at most 10 characters. Current length: 11',
-      )
+      domainAssert.expectResultFailure(result, [
+        new MaxLengthError('agency', 10, 11),
+      ])
     })
 
     it('should fail if number > 20 chars', () => {
       const result = createAccount({
         number: '123456789012345678901',
       })
-      expectFailureWithMessage(
-        result,
-        'The field "number" must be at most 20 characters. Current length: 21',
-      )
+      domainAssert.expectResultFailure(result, [
+        new MaxLengthError('number', 20, 21),
+      ])
     })
   })
 
   describe('load()', () => {
     it('should load a valid account', () => {
-      const account = expectSuccess(loadAccount())
+      const result = loadAccount()
+      const account = domainAssert.expectResultSuccess(result)
 
-      expect(account.id.value).toBe(validAccountLoadData.id)
-      expect(account.bankId.value).toBe(validAccountLoadData.bankId)
-      expect(account.name).toBe(validAccountLoadData.name)
-      expect(account.type.value).toBe(validAccountLoadData.type)
-      expect(account.balance).toBe(validAccountLoadData.balance)
-      expect(account.agency).toBe(validAccountLoadData.agency)
-      expect(account.number).toBe(validAccountLoadData.number)
+      domainAssert.expectValidEntity(account, validAccountLoadData.id)
+      domainAssert.expectUniqueIdEquals(
+        account.bankId,
+        validAccountLoadData.bankId,
+      )
+      domainAssert.assertEqual(account.name, validAccountLoadData.name)
+      domainAssert.expectValidValueObject(
+        account.type,
+        validAccountLoadData.type,
+      )
+      domainAssert.assertEqual(account.balance, validAccountLoadData.balance)
+      domainAssert.assertEqual(account.agency, validAccountLoadData.agency)
+      domainAssert.assertEqual(account.number, validAccountLoadData.number)
     })
   })
 
   describe('update methods', () => {
     it('should update data (except balance)', () => {
-      const account = expectSuccess(loadAccount())
-
-      const updateResult = account.updateData({
+      const result = loadAccount()
+      const account = domainAssert.expectResultSuccess(result)
+      const updates = {
         bankId: '20354d7a-e4fe-47af-8ff6-187bca92f3f9',
         name: 'Conta Editada',
         type: 'corrente',
         agency: '999',
         number: 'XYZ',
-      })
+      }
 
-      expectSuccess(updateResult)
+      const updateResult = account.updateData(updates)
 
-      expect(account.id.value).toBe(validAccountLoadData.id)
-      expect(account.bankId.value).toBe('20354d7a-e4fe-47af-8ff6-187bca92f3f9')
-      expect(account.name).toBe('Conta Editada')
-      expect(account.type.value).toBe('corrente')
-      expect(account.agency).toBe('999')
-      expect(account.number).toBe('XYZ')
+      domainAssert.expectResultSuccess(updateResult)
+      domainAssert.expectUniqueIdEquals(account.bankId, updates.bankId)
+      domainAssert.assertEqual(account.name, updates.name)
+      domainAssert.expectValidValueObject(account.type, updates.type)
+      domainAssert.assertEqual(account.agency, updates.agency)
+      domainAssert.assertEqual(account.number, updates.number)
     })
 
     it('should fail update if fields are invalid', () => {
-      const account = expectSuccess(loadAccount())
+      const result = loadAccount()
+      const account = domainAssert.expectResultSuccess(result)
 
-      const failResult = account.updateData({
+      const updates = {
         name: 'x',
         bankId: 'not-a-valid-uuid',
         type: 'investimento',
         agency: '12345678901',
         number: '123456789012345678901',
-      })
+      }
 
-      expectMultipleErrors(failResult, [
-        'The field "name" must be at least 3 characters. Current length: 1',
-        'The field "bankId" must be a valid UUID. Current: not-a-valid-uuid',
-        'The field "agency" must be at most 10 characters. Current length: 11',
-        'The field "number" must be at most 20 characters. Current length: 21',
-        'The field "type" must be "corrente" or "poupanca". Current: investimento',
+      const updateResult = account.updateData(updates)
+
+      domainAssert.expectResultFailure(updateResult, [
+        new MinLengthError('name', 3, 1),
+        new InvalidUuidError('bankId', 'not-a-valid-uuid'),
+        new MaxLengthError('agency', 10, 11),
+        new MaxLengthError('number', 20, 21),
+        new InvalidAccountTypeError('type', 'investimento'),
       ])
     })
 
     it('should update balance with setBalance()', () => {
-      const account = expectSuccess(loadAccount())
-      expectSuccess(account.setBalance(2000))
-      expect(account.balance).toBe(2000)
+      const result = loadAccount()
+      const account = domainAssert.expectResultSuccess(result)
+
+      const updateResult = account.setBalance(2000)
+      domainAssert.expectResultSuccess(updateResult)
+      domainAssert.assertEqual(account.balance, 2000)
     })
 
     it('should fail if setBalance < 0', () => {
-      const account = expectSuccess(loadAccount())
-      const failResult = account.setBalance(-100)
-      expectFailureWithMessage(
-        failResult,
-        'The field "balance" must be a valid currency value. Current: -100',
-      )
+      const result = loadAccount()
+      const account = domainAssert.expectResultSuccess(result)
+
+      const updateResult = account.setBalance(-100)
+      domainAssert.expectResultFailure(updateResult, [
+        new InvalidCurrencyError('balance', -100),
+      ])
     })
   })
 })
